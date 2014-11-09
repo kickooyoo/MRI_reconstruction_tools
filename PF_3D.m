@@ -7,7 +7,7 @@ function [img, full_kspace] = PF_3D(partial_kspace, full_dims, varargin)
 % inputs:
 % 	partial_kspace: [pf_Nx pf_Ny pf_Nz] 
 %		assumes is taken from origin-centered k-space
-% 	full_dims [Nx Ny Nz] : dims of full_kspace
+% 	full_dims [Nx Ny Nz] : dims of full_kspace, truncate for 1D, 2D
 %
 % varargin:
 %	PF_location: 
@@ -48,24 +48,30 @@ arg = vararg_pair(arg, varargin);
 
 % detect 2D or 3D
 assert(all(mod(full_dims,2) == 0), 'err: odd dims for full kspace');
-assert(ndims(partial_kspace) == length(full_dims),'full_dims does not match dims of partial_kspace');
-if length(full_dims) == 2
-	threeD = 0;
-elseif length(full_dims) == 3
-	threeD = 1;
-else
-	error('invalid number of dimensions, must be 2D or 3D');
+assert(ndims_ns(partial_kspace) == length(full_dims),'full_dims does not match dims of partial_kspace');
+ND = length(full_dims);
+assert(ND <=3, 'too many dims! max of 3');
+
+if length(arg.PF_location) < 3
+	arg.PF_location = [arg.PF_location zeros(1, 3 - length(arg.PF_location))];
 end
 
 % determine sizes of full, partial, and low-frequency kspace
-Nx = full_dims(1);
-Ny = full_dims(2);
 [pf_Nx, pf_Ny, pf_Nz] = size(partial_kspace);
+Nx = full_dims(1);
 lf_Nx = (Nx/2 - (Nx - pf_Nx))*2;
-lf_Ny = (Ny/2 - (Ny - pf_Ny))*2;
 lf_xndx = (Nx - pf_Nx) + 1:pf_Nx;
-lf_yndx = (Ny - pf_Ny) + 1:pf_Ny;
-if threeD
+
+if ND > 1
+	Ny = full_dims(2);
+	lf_Ny = (Ny/2 - (Ny - pf_Ny))*2;
+	lf_yndx = (Ny - pf_Ny) + 1:pf_Ny;
+else
+	Ny = 1;
+	lf_Ny = 1;
+	lf_yndx = 1;
+end
+if ND > 2
 	Nz = full_dims(3);
 	lf_Nz = (Nz/2 - (Nz - pf_Nz))*2;
 	lf_zndx = (Nz - pf_Nz) + 1:pf_Nz;
@@ -74,6 +80,8 @@ else
 	lf_Nz = 1;
 	lf_zndx = 1;
 end
+
+
 
 % assign indeces for partial Fourier
 pf_xndx = (1:pf_Nx) + arg.PF_location(1)*(Nx-pf_Nx);
@@ -95,7 +103,7 @@ lf_kspace(lf_xndx, lf_yndx, lf_zndx) = full_kspace(lf_xndx, lf_yndx, lf_zndx);
 % build filter and masks for filter areas
 if arg.filter_on
 	hanning_dims_step3 = [length(lf_xndx) length(lf_yndx) length(lf_zndx)]; 
-	hanning_step3 = generate_hanning_window(arg.window_step3, hanning_dims_step3, threeD);
+	hanning_step3 = generate_hanning_window(arg.window_step3, hanning_dims_step3, ND);
 	lf_kspace(lf_xndx, lf_yndx, lf_zndx) = lf_kspace(lf_xndx, lf_yndx, lf_zndx).*hanning_step3;
 end
 
@@ -106,11 +114,19 @@ phi = angle(est_lf_img);
 % build filter for step 8 outside for loop
 if arg.filter_on
 	hanning_dims_step8 = [pf_Nx pf_Ny pf_Nz] + arg.window_step8;
-	hanning_step8 = generate_hanning_window(arg.window_step8, hanning_dims_step8, threeD);
-	if threeD
-		hanning_step8_crop = hanning_step8((1:pf_Nx) + arg.window_step8*(1-arg.PF_location(1)), (1:pf_Ny) + arg.window_step8*(1-arg.PF_location(2)), (1:pf_Nz) + arg.window_step8*(1-arg.PF_location(3)));
-	else
-		hanning_step8_crop = hanning_step8((1:pf_Nx) + arg.window_step8*(1-arg.PF_location(1)), (1:pf_Ny) + arg.window_step8*(1-arg.PF_location(2)));
+	hanning_step8 = generate_hanning_window(arg.window_step8, hanning_dims_step8, ND);
+	switch ND
+		case 3
+			hanning_step8_crop = hanning_step8((1:pf_Nx) + arg.window_step8*(1-arg.PF_location(1)), ...
+				(1:pf_Ny) + arg.window_step8*(1-arg.PF_location(2)), ...
+				(1:pf_Nz) + arg.window_step8*(1-arg.PF_location(3)));
+		case 2
+			hanning_step8_crop = hanning_step8((1:pf_Nx) + arg.window_step8*(1-arg.PF_location(1)), ...
+				(1:pf_Ny) + arg.window_step8*(1-arg.PF_location(2)));
+		case 1
+			hanning_step8_crop = hanning_step8((1:pf_Nx) + arg.window_step8*(1-arg.PF_location(1)));
+		otherwise
+			error('invalid ND');
 	end
 	hanning_step8_full = zeros(Nx, Ny, Nz);
 	hanning_step8_full(pf_xndx, pf_yndx, pf_zndx) = hanning_step8_crop;
@@ -120,14 +136,14 @@ end
 
 for iter = 1:arg.niters
 	% step 5: 
-	rho_1 = abs(est_img).*exp(i*phi);
+	rho_1 = abs(est_img).*exp(1i*phi);
 
 	if arg.show_conv_kern
 		phi_diff = phi - angle(est_img);
 		subplot(1,2,1);
-		im(log10(abs(fftshift(fftn(exp(i*(phi_diff)))))+1e-10))
+		im(log10(abs(fftshift(fftn(exp(1i*(phi_diff)))))+1e-10))
 		subplot(1,2,2);
-		im(abs(fftshift(fftn(exp(i*(phi_diff)))))>0)
+		im(abs(fftshift(fftn(exp(1i*(phi_diff)))))>0)
 		drawnow;
 		pause(0.5)
 	end
@@ -147,10 +163,10 @@ full_kspace = tmp;
 
 end
 
-function hanning_window = generate_hanning_window(window_length, dims, threeD)
+function hanning_window = generate_hanning_window(window_length, dims, ND)
 % for apodization, window length refers to transition band length
 % dims is size of window
-	if any(dims(1:end-1*(1-threeD)) <= window_length*2)
+	if any(dims(1:ND) <= window_length*2)
 		display('ERR: transition band wider than provided dims for Hanning window');
 		keyboard;
 	end
@@ -158,27 +174,45 @@ function hanning_window = generate_hanning_window(window_length, dims, threeD)
 	% add extra 3: 2 because end points are zero, 1 in the middle for expanding
 	hann_len = (window_length+1)*2 + 1;
 	hanning_1D = col(hann(hann_len));
-	hanning_2D = hanning_1D*hanning_1D';
-	if threeD
-		hanning_3D = repmat(hanning_2D,[1 1 hann_len]).*repmat(permute(hanning_1D,[2 3 1]),[hann_len hann_len 1]);
-		hanning_crop = hanning_3D(2:end-1,2:end-1,2:end-1)./max(col(hanning_3D)); 
+	if ND == 1
+		hanning_crop = hanning_1D(2:end-1)./max(col(hanning_1D));
 	else
-		hanning_crop = hanning_2D(2:end-1,2:end-1)./max(col(hanning_2D)); 
+		hanning_2D = hanning_1D*hanning_1D';
+		if ND == 2
+			hanning_crop = hanning_2D(2:end-1,2:end-1)./max(col(hanning_2D));
+		else
+			hanning_3D = repmat(hanning_2D,[1 1 hann_len]).* ...
+				repmat(permute(hanning_1D,[2 3 1]), [hann_len hann_len 1]);
+			if ND == 3
+				hanning_crop = hanning_3D(2:end-1,2:end-1,2:end-1)./max(col(hanning_3D));
+			else
+				error('invalid ND');
+			end
+		end
 	end
-
+	
 	hanning_stretch = cat(1, hanning_crop(1:window_length,:,:), ...
 		repmat(hanning_crop(window_length+1,:,:), [dims(1)-2*window_length 1 1]), ...
 		hanning_crop(window_length+2:end,:,:));
-	hanning_stretch_2D = cat(2, hanning_stretch(:,1:window_length,:), ...
-		repmat(hanning_stretch(:,window_length+1,:), [1 dims(2)-2*window_length 1]), ...
-		hanning_stretch(:,window_length+2:end,:));
-
-	if threeD
-		hanning_stretch_3D = cat(3, hanning_stretch_2D(:,:,1:window_length), ...
-			repmat(hanning_stretch_2D(:,:,window_length+1), [1 1 dims(3)-2*window_length]), ...
-			hanning_stretch_2D(:,:,window_length+2:end));
-		hanning_window = hanning_stretch_3D;
+	if ND == 1
+		hanning_window = hanning_stretch;
 	else
-		hanning_window = hanning_stretch_2D;
+		hanning_stretch_2D = cat(2, hanning_stretch(:,1:window_length,:), ...
+			repmat(hanning_stretch(:,window_length+1,:), ...
+			[1 dims(2)-2*window_length 1]), ...
+			hanning_stretch(:,window_length+2:end,:));
+		if ND == 2
+			hanning_window = hanning_stretch_2D;
+		else
+			hanning_stretch_3D = cat(3, hanning_stretch_2D(:,:,1:window_length), ...
+				repmat(hanning_stretch_2D(:,:,window_length+1), ...
+				[1 1 dims(3)-2*window_length]), ...
+				hanning_stretch_2D(:,:,window_length+2:end));
+			if ND == 3
+				hanning_window = hanning_stretch_3D;
+			else
+				error('invalid ND');
+			end
+		end
 	end
 end
