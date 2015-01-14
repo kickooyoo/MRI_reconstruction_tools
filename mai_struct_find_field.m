@@ -19,7 +19,8 @@
 %|			for use with fieldval
 %|		fieldtol		default: 0
 %|			for use with fieldval
-%| 		exhaustive 		default: 0
+%|		fieldtol		default: 0
+%| 		:exhaustive 		default: 0
 
 arg.fieldname = [];
 arg.fieldval = [];
