@@ -8,10 +8,10 @@ function [frame_members, ds_freqs, ds_data] = radial_datasharing(freqs, data, Ny
 %
 % inputs:
 % freqs: complex-valued, in radians
-%		[Nro Nspokes]
+%		[Nro Nspokespf Nf]
 %
 % data:	RO values
-%		[Nro Nspokes]
+%		[Nro Nspokes Nf]
 %		have to do coil by coil separately!!
 % Nyq: maximum azimuthal distance between spokes
 %		units: m^-1? radians?
@@ -36,7 +36,7 @@ function [frame_members, ds_freqs, ds_data] = radial_datasharing(freqs, data, Ny
 % frame_members: matrix of cells showing membership
 %		[Nro_round Nspokes]
 %
-% TODO: Nro_round vs Nro in output!
+% TO DO: Nro_round vs Nro in output!
 % To think about: do I use Data at all? should I have a function that lets
 % me output datahared data easily and not just member matrices?? UGH
 %
@@ -81,18 +81,18 @@ end
 
 switch arg.format
 	case 'logical'
-		frame_members = false(arg.Nf, arg.Nro, arg.Nspokespf);
+		frame_members = false(arg.Nf, arg.Nro, arg.Nspokes);
 	case 'sparse'
 		keyboard;
 	case 'cells'
-		frame_members = cell(arg.Nro, arg.Nspokespf);
+		frame_members = cell(arg.Nro, arg.Nspokes);
 	otherwise
 		error(sprintf('unrecognized varargin format %s'), arg.format);
 end
 
 % do radial datasharing frame by frame
+[thetas, data_mags] = Cartesian_to_radial(reshape(freqs, [arg.Nro, arg.Nspokes]));
 for frame_ndx = 1:arg.Nf
-	[thetas, data_mags] = Cartesian_to_radial(freqs(:,:,frame_ndx));
 	max_radius = max(col(data_mags));
 	switch arg.format
 		case 'logical'
@@ -165,9 +165,9 @@ function frame_members = format_frame_members(thetas, data_mags, ...
 	ring_theta_ndcs, radii, arg)
 	switch arg.format
 		case 'logical'
-			ring_members = false(arg.Nro, arg.Nspokespf, length(radii));
+			ring_members = false(arg.Nro, arg.Nspokes, length(radii));
 			for ring_ndx = 1:length(radii)
-				correct_spoke = false(arg.Nro, arg.Nspokespf);
+				correct_spoke = false(arg.Nro, arg.Nspokes);
 				correct_spoke(:,ring_theta_ndcs{ring_ndx}) = true;
 				correct_annulus = (data_mags <= radii(ring_ndx));
 				if ring_ndx > 1
@@ -241,8 +241,11 @@ function [ring_thetas, ring_theta_ndcs, radii] = rdatasharing_1f(thetas, ...
 		% for now, just even sized radii
 		curr_thetas = thetas(frame_theta_ndcs);
 		min_radius = Nyquist_radius(curr_thetas, Nyq);
-		radii = min_radius:min_radius:max_radius;
-		%radii_Nyq = Nyq*radii/max_radius;
+		if min_radius > max_radius
+			radii = min_radius;
+		else
+			radii = min_radius:min_radius:max_radius;
+		end
 		Nrings = length(radii);
 		ring_theta_ndcs = repmat({frame_theta_ndcs}, 1, Nrings);
 		ring_thetas = repmat({curr_thetas}, 1, Nrings);
@@ -347,7 +350,7 @@ end
 function plot_thetas(thetas, radii, varargin)
 % plot annular segments of spokes
 % assume thetas in cells
-% TODO: enforce same color for spokes in each annulus
+% TO DO: enforce same color for spokes in each annulus
 % if Nyquist varargin not empty, will plot violations
 arg.Nyquist = [];
 arg.draw_rings = true;%false;
@@ -410,7 +413,7 @@ function frame_members = trivial_datashare(arg)
 % trivial case of no datasharing
 	switch arg.format
 		case {'logical','sparse'}
-			in_frame = logical(kron(ones(1,arg.Nf), ones(arg.Nspokespf, 1)));
+			in_frame = kron(eye(arg.Nf),ones(arg.Nspokespf,1));
 			frame_members = repmat(permute(in_frame, [2 3 1]), [1 arg.Nro 1]);
 			if strcmpi(arg.format, 'sparse')
 				for frame_ndx = 1:arg.Nf

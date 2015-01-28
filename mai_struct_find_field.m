@@ -1,5 +1,5 @@
   function [out_name, out_val] = mai_struct_find_field(ss, varargin)
-%|function [out_name, out_val] = ir_struct_find_field(ss, varargin)
+%|function [out_name, out_val] = mai_struct_find_field(ss, varargin)
 %|
 %| Look recursively through the fields of a structure for a given field.
 %| Objects like Fatrix and fatrix2 are converted to structs too for this.
@@ -20,7 +20,7 @@
 %|		fieldtol		default: 0
 %|			for use with fieldval
 %|		fieldtol		default: 0
-%| 		:exhaustive 		default: 0
+%| 		exhaustive 		default: 0
 
 arg.fieldname = [];
 arg.fieldval = [];
