@@ -1,5 +1,5 @@
-function frame_members = radial_datasharing(freqs, data, Nyq, varargin)
-%function frame_members = radial_datasharing(freqs, data, Nyq, varargin)
+function [frame_members, ds_freqs, ds_data] = radial_datasharing(freqs, data, Nyq, varargin)
+%function [frame_members, ds_freqs, ds_data] = radial_datasharing(freqs, data, Nyq, varargin)
 % generalization of k-Space Weighted Image Contrast (KWIC)
 % (essentially data sharing for radial trajectories), but do not assume 
 % resample same points of k-space (e.g. Golden Angle)
@@ -12,6 +12,7 @@ function frame_members = radial_datasharing(freqs, data, Nyq, varargin)
 %
 % data:	RO values
 %		[Nro Nspokes]
+%		have to do coil by coil separately!!
 % Nyq: maximum azimuthal distance between spokes
 %		units: m^-1? radians?
 %		leave empty if don't want any datasharing
@@ -48,6 +49,7 @@ arg.Fibonnaci = false;
 arg.Nf = [];
 arg.Nspokespf = [];
 arg.vary_rings = 0; % as opposed to varying reach
+arg.figs_on = 0;
 arg = vararg_pair(arg, varargin);
 [arg.Nro, arg.Nspokes] = size(freqs);
 
@@ -79,18 +81,18 @@ end
 
 switch arg.format
 	case 'logical'
-		frame_members = false(arg.Nf, arg.Nro, arg.Nspokes);
+		frame_members = false(arg.Nf, arg.Nro, arg.Nspokespf);
 	case 'sparse'
 		keyboard;
 	case 'cells'
-		frame_members = cell(arg.Nro, arg.Nspokes);
+		frame_members = cell(arg.Nro, arg.Nspokespf);
 	otherwise
 		error(sprintf('unrecognized varargin format %s'), arg.format);
 end
 
 % do radial datasharing frame by frame
 for frame_ndx = 1:arg.Nf
-	[thetas, data_mags] = Cartesian_to_radial(freqs);
+	[thetas, data_mags] = Cartesian_to_radial(freqs(:,:,frame_ndx));
 	max_radius = max(col(data_mags));
 	switch arg.format
 		case 'logical'
@@ -107,32 +109,65 @@ for frame_ndx = 1:arg.Nf
 	
 	[ring_thetas, ring_theta_ndcs, annuli] = rdatasharing_1f(thetas, ...
 		frame_theta_ndcs, max_radius, Nyq, arg);
-	plot_thetas(ring_thetas, annuli, 'Nyquist', Nyq, 'title', ...
-		sprintf('frame %d',frame_ndx));
+	if arg.figs_on
+		plot_thetas(ring_thetas, annuli, 'Nyquist', Nyq, 'title', ...
+			sprintf('frame %d',frame_ndx));
+	end
 	
 	switch arg.format
 		case 'logical'
-			frame_members(frame_ndx,:,:) = format_frame_members(thetas, data_mags, ring_theta_ndcs, annuli, arg);
-			case 'sparse'
+			frame_members(frame_ndx,:,:) = format_frame_members(thetas, ...
+				data_mags, ring_theta_ndcs, annuli, arg);
+		case 'sparse'
 			keyboard;
 		case 'cells'
-			tmp = format_frame_members(thetas, data_mags, ring_theta_ndcs, annuli, arg);
+			tmp = format_frame_members(thetas, data_mags, ring_theta_ndcs, ...
+				annuli, arg);
 			frame_members = cellfun(@vertcat, frame_members, tmp);
 		otherwise
 			error(sprintf('unrecognized varargin format %s'), arg.format);
 	end
+	[ds_freqs, ds_data] = format_outputs(freqs, data, frame_members, arg);
 end
 
-figure; im(permute(frame_members, [2 3 1]))
+if arg.figs_on
+	figure; im(permute(frame_members, [2 3 1]));
+end
+
+end
+
+function [ds_freqs, ds_data] = format_outputs(freqs, data, frame_members, arg)
+% output columnized freqs and data, remember vary coil last, outside this
+% function entirely
+	switch arg.format
+		case 'logical'
+			col_freqs = col(freqs);
+			col_data = col(data);
+			ds_freqs = [];
+			ds_data = [];
+			for frame_ndx = 1:arg.Nf
+				curr_members = col(frame_members(frame_ndx,:,:));
+				curr_freqs = col_freqs(find(curr_members));
+				curr_data = col_data(find(curr_members));
+				ds_freqs = [ds_freqs; curr_freqs];
+				ds_data = [ds_data; curr_data];
+			end
+		case 'sparse'
+			keyboard;
+		case 'cells'
+			keyboard;
+		otherwise
+			error(sprintf('unrecognized varargin format %s'), arg.format);
+	end
 end
 
 function frame_members = format_frame_members(thetas, data_mags, ...
 	ring_theta_ndcs, radii, arg)
 	switch arg.format
 		case 'logical'
-			ring_members = false(arg.Nro, arg.Nspokes, length(radii));
+			ring_members = false(arg.Nro, arg.Nspokespf, length(radii));
 			for ring_ndx = 1:length(radii)
-				correct_spoke = false(arg.Nro, arg.Nspokes);
+				correct_spoke = false(arg.Nro, arg.Nspokespf);
 				correct_spoke(:,ring_theta_ndcs{ring_ndx}) = true;
 				correct_annulus = (data_mags <= radii(ring_ndx));
 				if ring_ndx > 1
@@ -145,7 +180,7 @@ function frame_members = format_frame_members(thetas, data_mags, ...
 		case 'sparse'
 			keyboard;
 		case 'cells'
-			ring_members = false(arg.Nro, arg.Nspokes, length(radii));
+			ring_members = false(arg.Nro, arg.Nspokespf, length(radii));
 			for ring_ndx = 1:length(radii)
 				correct_spoke = false(arg.Nro, arg.Nspokes);
 				correct_spoke(:,ring_theta_ndcs{ring_ndx}) = true;
@@ -157,7 +192,7 @@ function frame_members = format_frame_members(thetas, data_mags, ...
 				ring_members(:,:,ring_ndx) = correct_spoke & correct_annulus;
 			end
 			ndcs = any(ring_members,3);
-			frame_members = cell(arg.Nro, arg.Nspokes);
+			frame_members = cell(arg.Nro, arg.Nspokespf);
 			keyboard;
 			frame_members(ndcs) =  6;
 			
@@ -375,7 +410,7 @@ function frame_members = trivial_datashare(arg)
 % trivial case of no datasharing
 	switch arg.format
 		case {'logical','sparse'}
-			in_frame = logical(kron(eye(arg.Nf), ones(arg.Nspokespf, 1)));
+			in_frame = logical(kron(ones(1,arg.Nf), ones(arg.Nspokespf, 1)));
 			frame_members = repmat(permute(in_frame, [2 3 1]), [1 arg.Nro 1]);
 			if strcmpi(arg.format, 'sparse')
 				for frame_ndx = 1:arg.Nf
@@ -395,20 +430,28 @@ function frame_members = trivial_datashare(arg)
 end
 
 function radial_datasharing_test()
-	close all;
+	%close all;
 	arg.Nspokes = 36;
 	arg.Nf = 6;
 	Nyq = 3;
 	rng(2);
 	thetas = 2*pi*rand(1, arg.Nspokes);
+	
+	% Calculate angles for Golden-Angle mode
+	GA = 111.246117975/180*pi;
+	thetas = [pi/2:GA:GA*arg.Nspokes];
+	thetas = mod(thetas,2*pi);
+	%figure; plot_thetas({thetas}, 1);
+	
 	freqs = kron(col([-10:0.2:10]), exp(1i*thetas));
 	%figure; scatter(real(freqs(:)), imag(freqs(:)));
 	%frame_members = radial_datasharing(freqs, rand(size(freqs)), Nyq, 'Nf', ...
 %		arg.Nf, 'format','cells');
 	
-	frame_members = radial_datasharing(freqs, rand(size(freqs)), Nyq, 'Nf', ...
-		arg.Nf);
-	frame_members = radial_datasharing(freqs, rand(size(freqs)), Nyq, 'Nf', ...
-		arg.Nf, 'vary_rings', 1);
+	[frame_members, ds_freqs, ds_data] = radial_datasharing(freqs, ...
+		rand(size(freqs)), Nyq, 'Nf', arg.Nf);
+	keyboard;
+	%frame_members = radial_datasharing(freqs, rand(size(freqs)), Nyq, 'Nf', ...
+	%	arg.Nf, 'vary_rings', 1);
 	%[thetas, radii] = Cartesian_to_radial(freqs);
 end
