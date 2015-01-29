@@ -1,4 +1,4 @@
-function [frame_members, ds_freqs, ds_data] = radial_datasharing(freqs, data, Nyq, varargin)
+function [frame_members, ds_freqs, ds_data, Ns] = radial_datasharing(freqs, data, Nyq, varargin)
 %function [frame_members, ds_freqs, ds_data] = radial_datasharing(freqs, data, Nyq, varargin)
 % generalization of k-Space Weighted Image Contrast (KWIC)
 % (essentially data sharing for radial trajectories), but do not assume 
@@ -31,6 +31,13 @@ function [frame_members, ds_freqs, ds_data] = radial_datasharing(freqs, data, Ny
 % outputs:
 % frame_members: membership matrices for each frame ndx
 %		[Nf Nro_round Nspokes] logical, sparse?
+%
+% ds_freqs:
+%		{Ns_f}_Nf
+%		Ns = number of points assigned to frame f after datasharing
+%
+% ds_data:
+%		{Ns_f Nc}_Nf
 %		
 % OR
 % frame_members: matrix of cells showing membership
@@ -127,7 +134,7 @@ for frame_ndx = 1:arg.Nf
 		otherwise
 			error(sprintf('unrecognized varargin format %s'), arg.format);
 	end
-	[ds_freqs, ds_data] = format_outputs(freqs, data, frame_members, arg);
+	[ds_freqs, ds_data, Ns] = format_outputs(freqs, data, frame_members, arg);
 end
 
 if arg.figs_on
@@ -136,7 +143,7 @@ end
 
 end
 
-function [ds_freqs, ds_data] = format_outputs(freqs, data, frame_members, arg)
+function [ds_freqs, ds_data, Ns] = format_outputs(freqs, data, frame_members, arg)
 % output columnized freqs and data, remember vary coil last, outside this
 % function entirely
 	switch arg.format
@@ -145,10 +152,12 @@ function [ds_freqs, ds_data] = format_outputs(freqs, data, frame_members, arg)
 			col_data = col(data);
 			ds_freqs = [];
 			ds_data = [];
+			Ns = zeros(arg.Nf, 1);
 			for frame_ndx = 1:arg.Nf
 				curr_members = col(frame_members(frame_ndx,:,:));
 				curr_freqs = col_freqs(find(curr_members));
 				curr_data = col_data(find(curr_members));
+				Ns(frame_ndx) = numel(find(curr_members));
 				ds_freqs = [ds_freqs; curr_freqs];
 				ds_data = [ds_data; curr_data];
 			end
@@ -451,7 +460,7 @@ function radial_datasharing_test()
 	%frame_members = radial_datasharing(freqs, rand(size(freqs)), Nyq, 'Nf', ...
 %		arg.Nf, 'format','cells');
 	
-	[frame_members, ds_freqs, ds_data] = radial_datasharing(freqs, ...
+	[frame_members, ds_freqs, ds_data, Ns] = radial_datasharing(freqs, ...
 		rand(size(freqs)), Nyq, 'Nf', arg.Nf);
 	keyboard;
 	%frame_members = radial_datasharing(freqs, rand(size(freqs)), Nyq, 'Nf', ...
