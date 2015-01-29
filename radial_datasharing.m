@@ -81,6 +81,7 @@ end
 
 frame_members = trivial_datashare(arg);
 if isempty(Nyq)
+	[ds_freqs, ds_data, Ns] = format_outputs(freqs, data, frame_members, arg);
 	return; 
 else
 	init_frame_members = frame_members;
@@ -256,9 +257,16 @@ function [ring_thetas, ring_theta_ndcs, radii] = rdatasharing_1f(thetas, ...
 			radii = min_radius:min_radius:max_radius;
 		end
 		Nrings = length(radii);
-		ring_theta_ndcs = repmat({frame_theta_ndcs}, 1, Nrings);
-		ring_thetas = repmat({curr_thetas}, 1, Nrings);
+% 		ring_theta_ndcs = repmat({frame_theta_ndcs}, 1, Nrings);
+% 		ring_thetas = repmat({curr_thetas}, 1, Nrings);
 		for ring_ndx = 1:Nrings
+			if ring_ndx == 1
+				ring_theta_ndcs{1} = frame_theta_ndcs;
+				ring_thetas{1} = curr_thetas;
+			else
+				ring_theta_ndcs{ring_ndx} = ring_theta_ndcs{ring_ndx - 1};
+				ring_thetas{ring_ndx} = ring_thetas{ring_ndx - 1};
+			end
 			curr_Nyq = Nyquist_radius(ring_thetas{ring_ndx}, Nyq);
 			meet_Nyquist = (radii(ring_ndx) <= curr_Nyq);
 			counter = 0;
@@ -275,19 +283,26 @@ function [ring_thetas, ring_theta_ndcs, radii] = rdatasharing_1f(thetas, ...
 				
 				radius_reach_left = azim_dist(thetas(left_augment), radii(ring_ndx));
 				radius_reach_right = azim_dist(thetas(right_augment), radii(ring_ndx));
-				if (radius_reach_left < radius_reach_right) || (lchange && ~rchange)
+				if (radius_reach_left == radius_reach_right) 
+					rand_dir = (rand > 0.5);
+				else
+					rand_dir = NaN;
+				end
+				if (radius_reach_left < radius_reach_right) || (~isnan(rand_dir) && rand_dir)
 					ring_theta_ndcs{ring_ndx} = augment_ndx(...
 						ring_theta_ndcs{ring_ndx}, 1, 0, arg);
-				else
+				elseif (radius_reach_left > radius_reach_right) || (~isnan(rand_dir) && ~rand_dir)
 					ring_theta_ndcs{ring_ndx} = augment_ndx(...
 						ring_theta_ndcs{ring_ndx}, 0, 1, arg);
+				else
+					keyboard;
 				end
 				ring_thetas{ring_ndx} = thetas(ring_theta_ndcs{ring_ndx});
 				meet_Nyquist = radii(ring_ndx) <= Nyquist_radius(...
 					ring_thetas{ring_ndx}, Nyq);
 				
 				counter = counter + 1;
-				if counter > 100
+				if counter > arg.Nspokes
 					keyboard;
 				end
 			end
