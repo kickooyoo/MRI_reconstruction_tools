@@ -27,6 +27,7 @@ function [frame_members, ds_freqs, ds_data, Ns] = radial_datasharing(freqs, data
 %			'cells' BUGGY, TO FIX
 %		'Fibonnaci' default false, TO DO
 %		'Nyquist_spokes', TO DO
+%		figs_on
 %
 % outputs:
 % frame_members: membership matrices for each frame ndx
@@ -255,6 +256,7 @@ function [ring_thetas, ring_theta_ndcs, radii] = rdatasharing_1f(thetas, ...
 			radii = min_radius;
 		else
 			radii = min_radius:min_radius:max_radius;
+			radii = [radii max_radius];
 		end
 		Nrings = length(radii);
 % 		ring_theta_ndcs = repmat({frame_theta_ndcs}, 1, Nrings);
