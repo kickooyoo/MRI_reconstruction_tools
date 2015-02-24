@@ -19,19 +19,40 @@ arg.thresh = 0.15;
 arg.l2b = 2;
 arg.dilate = 10;
 arg.covmat = [];
+arg.display_thresh = 1e-4;
 arg = vararg_pair(arg, varargin);
 
 %smap_norm?? 
 SoS = sos_combine(permute(coil_images, [1 2 4 3]), arg.covmat, []);
 bodycoil_sim = SoS;%.*exp(1i*angle(coil_images(:,:,9)));
+if 0
+	sOs = fftshift(fft2(SoS));
+	[nx ny] = size(SoS);
+	figure; im(sOs);
+	sOs_filt = sOs;
+	window_width = 1;
+	sOs_filt(nx/2-window_width:nx/2+window_width,ny/2-window_width:ny/2+window_width) = 0;
+	SoS_filt = ifft2(ifftshift(sOs_filt));
+	figure; im(SoS_filt);
+end
+
 % phase of coils was noisy, don't bother adding it
-bodycoil_sim = bodycoil_sim.*(SoS > arg.thresh*max(col(SoS)));
+
+bodycoil_mask = adaptivethreshold(SoS, 150, arg.thresh) & (SoS > arg.thresh/2*max(col(SoS)));
+bodycoil_mask = imerode(bodycoil_mask, strel('disk', 0.3*arg.dilate));
+if sum(bodycoil_mask) == 0
+	display('empty body coil mask!');
+	keyboard;
+end
+bodycoil_sim = bodycoil_sim.*bodycoil_mask;
 figure; im(bodycoil_sim)
+display('check masks');
+keyboard;
 [sense_maps, sinit] = mri_sensemap_denoise(coil_images, 'bodycoil', bodycoil_sim, ...
 	'chol', 1, 'niter', 1, 'l2b', arg.l2b);
 if arg.figs_on
 	% build mask for display
-	mask = abs(bodycoil_sim)>1e-4;
+	mask = abs(bodycoil_sim)> arg.display_thresh;
 	convex_mask = bwconvhull(mask); % only in 2014a, use [v d] = version;
 	convex_mask = imdilate(convex_mask, strel('disk', arg.dilate));
 	figure; im(sense_maps.*repmat(convex_mask, [1 1 Nc]));
@@ -48,10 +69,6 @@ figure; im(bodycoil_sim)
 [sense_maps, sinit] = mri_sensemap_denoise(coil_images, 'bodycoil', bodycoil_sim, ...
 	'chol', 1, 'niter', 1, 'l2b', arg.l2b);
 if arg.figs_on
-	% build mask for display
-	mask = abs(bodycoil_sim)>1e-4;
-	convex_mask = bwconvhull(mask); % only in 2014a, use [v d] = version;
-	convex_mask = imdilate(convex_mask, strel('disk', arg.dilate));
 	figure; im(sense_maps.*repmat(convex_mask, [1 1 Nc]));
 end
 
