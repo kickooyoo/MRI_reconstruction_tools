@@ -1,4 +1,5 @@
-function sense_maps = est_S_reg(coil_images, varargin)
+function [sense_maps, convex mask] = est_S_reg(coil_images, varargin)
+%function [sense_maps, convex mask] = est_S_reg(coil_images, varargin)
 % estimate sense maps from coil images
 % basically wrapper for Michael's method
 %
@@ -39,7 +40,9 @@ end
 % phase of coils was noisy, don't bother adding it
 
 bodycoil_mask = adaptivethreshold(SoS, 150, arg.thresh) & (SoS > arg.thresh/2*max(col(SoS)));
-bodycoil_mask = imerode(bodycoil_mask, strel('disk', 0.3*arg.dilate));
+bodycoil_mask = imerode(bodycoil_mask, strel('disk', 0.3*arg.dilate)); % get rid of extraneous pixels outside body
+bodycoil_mask = bwconvhull(bodycoil_mask);
+bodycoil_mask = imerode(bodycoil_mask, strel('disk', 1.5*arg.dilate)); % further erode
 if sum(bodycoil_mask) == 0
 	display('empty body coil mask!');
 	keyboard;

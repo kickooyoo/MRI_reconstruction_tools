@@ -12,6 +12,8 @@
 %| - exhaustive option returns all fields that match query, not just first
 %| varargin:
 %|		fieldname
+%|		name_excludes		cell of strings to exclude in match
+%|					e.g. 'image', when searching for 'age'
 %|		fieldval
 %|		all_vector		default: 1
 %|			requires element-by-element match w/i tolerance for each element
@@ -23,6 +25,7 @@
 %| 		exhaustive 		default: 0
 
 arg.fieldname = [];
+arg.name_excludes = {};
 arg.fieldval = [];
 arg.fieldtol = 0;
 arg.all_vector = 1;
@@ -78,7 +81,15 @@ for ii=1:length(fnames)
 		end
 	end
 
-	if ~ok_name && ~isempty(strfind(lower(fname), lower(arg.fieldname)))
+	string_match = ~isempty(strfind(lower(fname), lower(arg.fieldname)));
+	if ~isempty(arg.name_excludes)
+		for jj = 1:length(arg.name_excludes)
+			exclude_match(jj) = ~isempty(strfind(lower(fname), lower(arg.name_excludes{jj})));
+		end
+		exclude_match = any(exclude_match);
+		string_match = string_match && ~exclude_match;
+	end
+	if ~ok_name && string_match
 		out_name = fname;
 		out_val = s1;
 		ok_name = true;
