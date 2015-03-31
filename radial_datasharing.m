@@ -1,10 +1,15 @@
-function [frame_members, ds_freqs, ds_data, Ns] = radial_datasharing(freqs, data, Nyq, varargin)
-%function [frame_members, ds_freqs, ds_data] = radial_datasharing(freqs, data, Nyq, varargin)
+function [ds_data, frame_members, ds_freqs, Ns, ds_dcf] = radial_datasharing(freqs, ...
+	data, Nyq, varargin)
+%function [ds_data, frame_members, ds_freqs, Ns, ds_dcf] = radial_datasharing(freqs, ...
+%	data, Nyq, varargin)
+%
 % generalization of k-Space Weighted Image Contrast (KWIC)
 % (essentially data sharing for radial trajectories), but do not assume 
 % resample same points of k-space (e.g. Golden Angle)
 % if use repeated radial angles, can use conventional datasharing, 
 % data_share_fill.m in spline_basis repo
+% 
+% not yet able to handle multicoil data
 %
 % inputs:
 % freqs: complex-valued, in radians
@@ -30,6 +35,9 @@ function [frame_members, ds_freqs, ds_data, Ns] = radial_datasharing(freqs, data
 %		figs_on
 %
 % outputs:
+% ds_data:
+%		{Ns_f Nc}_Nf
+%
 % frame_members: membership matrices for each frame ndx
 %		[Nf Nro_round Nspokes] logical, sparse?
 %
@@ -37,8 +45,10 @@ function [frame_members, ds_freqs, ds_data, Ns] = radial_datasharing(freqs, data
 %		{Ns_f}_Nf
 %		Ns = number of points assigned to frame f after datasharing
 %
-% ds_data:
-%		{Ns_f Nc}_Nf
+% Ns: number of samples assigned to each frame, useful for F fatrix
+%
+% ds_dcf: Voronoi-based density compensation function
+%		same size as ds_data
 %		
 % OR
 % frame_members: matrix of cells showing membership
@@ -50,23 +60,32 @@ function [frame_members, ds_freqs, ds_data, Ns] = radial_datasharing(freqs, data
 %
 % Mai Le, University of Michigan, 01/26/15
 
-if nargin == 1 && streq(freqs, 'test'), radial_datasharing_test, return, end
+if nargin < 3 && streq(freqs, 'test')
+	radial_datasharing_test(data);
+	return
+end
 
+% --------------- initializing parameters --------------
+% default values for varargin
 arg.format = 'logical';
 arg.Fibonnaci = false;
 arg.Nf = [];
 arg.Nspokespf = [];
 arg.vary_rings = 0; % as opposed to varying reach
 arg.figs_on = 0;
+arg.nargout = nargout;
 arg = vararg_pair(arg, varargin);
 [arg.Nro, arg.Nspokes] = size(freqs);
 
+% check inputs
 if nargin < 3, help(mfilename), error(mfilename), end
 assert(all(size(freqs) == size(data)), 'freqs and data have mismatched size');
 assert(xor(isempty(arg.Nf), isempty(arg.Nspokespf)), ...
 	'specify only Nf OR Nspokespf via varargin');
 assert((mod(arg.Nf,1) == 0) && (arg.Nf <= arg.Nspokes), ...
 	sprintf('invalid Nf: %d', arg.Nf));
+assert(~(isempty(arg.Nf) && isempty(arg.Nspokespf)), ...
+	'must specify either Nf or Nspokespf');
 
 % calculate respective Nf and Nspokespf
 if isempty(arg.Nf)
@@ -77,37 +96,42 @@ if isempty(arg.Nspokespf)
 end
 if arg.Nf*arg.Nspokespf ~= arg.Nspokes
 	display('not yet coded case with leftover spokes!');
+	display(sprintf('mismatch: Nspokes (%d) ~= Nspokes/frame (%d) * Nframes (%d)', ...
+		arg.Nspokes, arg.Nspokespf, arg.Nf));
 	keyboard;
 end
 
+% assign data to each original bin
 frame_members = trivial_datashare(arg);
 if isempty(Nyq)
+	display('empty Nyq argument, so no sharing across frames');
 	[ds_freqs, ds_data, Ns] = format_outputs(freqs, data, frame_members, arg);
 	return; 
 else
 	init_frame_members = frame_members;
 end
 
+% ---------------- datasharing ---------------
+% initialize data format
 switch arg.format
 	case 'logical'
 		frame_members = false(arg.Nf, arg.Nro, arg.Nspokes);
-	case 'sparse'
-		keyboard;
 	case 'cells'
 		frame_members = cell(arg.Nro, arg.Nspokes);
 	otherwise
 		error(sprintf('unrecognized varargin format %s'), arg.format);
 end
 
-% do radial datasharing frame by frame
+% do radial datasharing looping frame by frame
 [thetas, data_mags] = Cartesian_to_radial(reshape(freqs, [arg.Nro, arg.Nspokes]));
 for frame_ndx = 1:arg.Nf
+	
 	max_radius = max(col(data_mags));
+	
+	% get indices of readouts that initially map to this frame
 	switch arg.format
 		case 'logical'
 			frame_theta_ndcs = find(squeeze(init_frame_members(frame_ndx,1,:)) == true);
-		case 'sparse'
-			keyboard;
 		case 'cells'
 			% simple cells of one val each
 			init_frame_members_mat = cell2mat(init_frame_members);
@@ -116,6 +140,7 @@ for frame_ndx = 1:arg.Nf
 			error(sprintf('unrecognized varargin format %s'), arg.format);
 	end
 	
+	% do the datasharing
 	[ring_thetas, ring_theta_ndcs, annuli] = rdatasharing_1f(thetas, ...
 		frame_theta_ndcs, max_radius, Nyq, arg);
 	if arg.figs_on
@@ -123,29 +148,31 @@ for frame_ndx = 1:arg.Nf
 			sprintf('frame %d',frame_ndx));
 	end
 	
+	% format outputs correctly
 	switch arg.format
 		case 'logical'
 			frame_members(frame_ndx,:,:) = format_frame_members(thetas, ...
 				data_mags, ring_theta_ndcs, annuli, arg);
-		case 'sparse'
-			keyboard;
 		case 'cells'
 			tmp = format_frame_members(thetas, data_mags, ring_theta_ndcs, ...
 				annuli, arg);
 			frame_members = cellfun(@vertcat, frame_members, tmp);
 		otherwise
 			error(sprintf('unrecognized varargin format %s'), arg.format);
-	end
-	[ds_freqs, ds_data, Ns] = format_outputs(freqs, data, frame_members, arg);
+	end	
 end
 
+[ds_freqs, ds_data, Ns, ds_dcf] = format_outputs(freqs, data, frame_members, arg);
+
+% ----------------- show results -------------
 if arg.figs_on
 	figure; im(permute(frame_members, [2 3 1]));
 end
 
 end
 
-function [ds_freqs, ds_data, Ns] = format_outputs(freqs, data, frame_members, arg)
+% ??
+function [ds_freqs, ds_data, Ns, ds_dcf] = format_outputs(freqs, data, frame_members, arg)
 % output columnized freqs and data, remember vary coil last, outside this
 % function entirely
 	switch arg.format
@@ -153,14 +180,22 @@ function [ds_freqs, ds_data, Ns] = format_outputs(freqs, data, frame_members, ar
 			col_freqs = col(freqs);
 			col_data = col(data);
 			ds_freqs = [];
+			ds_dcf = [];
 			ds_data = [];
 			Ns = zeros(arg.Nf, 1);
 			for frame_ndx = 1:arg.Nf
 				curr_members = col(frame_members(frame_ndx,:,:));
-				curr_freqs = col_freqs(find(curr_members));
 				curr_data = col_data(find(curr_members));
-				Ns(frame_ndx) = numel(find(curr_members));
-				ds_freqs = [ds_freqs; curr_freqs];
+				
+				if arg.nargout == 5
+					curr_freqs = col_freqs(find(curr_members));
+					if ~isempty(curr_freqs)
+						curr_dcf = calculate_voronoi_dcf(curr_freqs, arg);
+					end
+					Ns(frame_ndx) = numel(find(curr_members));
+					ds_freqs = [ds_freqs; curr_freqs];
+					ds_dcf = [ds_dcf; curr_dcf];
+				end
 				ds_data = [ds_data; curr_data];
 			end
 		case 'sparse'
@@ -172,6 +207,69 @@ function [ds_freqs, ds_data, Ns] = format_outputs(freqs, data, frame_members, ar
 	end
 end
 
+% gives voronoi area for a set of frequency points
+function dcf = calculate_voronoi_dcf(freqs, arg)
+	if arg.figs_on
+		try
+			voronoi(real(freqs), imag(freqs))
+		catch
+			keyboard;
+		end
+	end
+	[vor_v, vor_c] = voronoin([real(freqs) imag(freqs)]);
+	for ii = 1 : size(vor_c ,1)
+		ind = vor_c{ii}';
+		tess_area(ii,1) = polyarea(vor_v(2:end,1), vor_v(2:end,2));
+	end
+	if arg.figs_on
+		figure;
+	end
+	for jj = 1:length(vor_c)
+		A(jj) = polyarea(vor_v(vor_c{jj},1), vor_v(vor_c{jj},2));
+		if isnan(A(jj))
+			tmpx = vor_v(vor_c{jj},1);
+			tmpy = vor_v(vor_c{jj},2);
+			% approximate +- 0.5 boundary
+			if length(tmpx) ~= 3
+				display('unknown Voronoi shape');
+				keyboard;
+			end
+			tmpx_trunc = tmpx(~isinf(tmpx));
+			tmpy_trunc = tmpy(~isinf(tmpy));
+			x_diff = abs(tmpx_trunc(1)-tmpx_trunc(2));
+			y_diff = abs(tmpy_trunc(1)-tmpy_trunc(2));
+			line1 = tmpy_trunc(1)/tmpx_trunc(1);
+			line2 = tmpy_trunc(2)/tmpx_trunc(2);
+			if y_diff < x_diff
+				% along top or bottom edge
+				new1 = sign(tmpy_trunc(1))*[0.5/line1 0.5];
+				new2 = sign(tmpy_trunc(1))*[0.5/line2 0.5];
+			else
+				% along left or right edge
+				new1 = sign(tmpx_trunc(1))*[0.5 0.5*line1];
+				new2 = sign(tmpx_trunc(1))*[0.5 0.5*line2];
+			end
+			% take care of corner pieces
+			new1 = max(min(new1, 0.5), -0.5);
+			new2 = max(min(new2, 0.5), -0.5);
+			tmpx = cat(1, tmpx_trunc, new1(1), new2(1));
+			tmpy = cat(1, tmpy_trunc, new1(2), new2(2));
+			if arg.figs_on && (mod(jj,6) == 0)
+				scatter(tmpx, tmpy); hold on; 
+				scatter(tmpx_trunc, tmpy_trunc); 
+				axis([-0.5 0.5 -0.5 0.5])
+			end
+			if ~all(size(tmpx) == size(tmpy))
+				display('size mismatch');
+				keyboard;
+			end
+			A(jj) = polyarea(tmpx, tmpy);
+		end
+	end
+	dcf = col(A);
+end
+
+% ??
 function frame_members = format_frame_members(thetas, data_mags, ...
 	ring_theta_ndcs, radii, arg)
 	switch arg.format
@@ -212,114 +310,135 @@ function frame_members = format_frame_members(thetas, data_mags, ...
 	end
 end
 
+% radial datasharing over 1 frame
+% combine with previous method?
 function [ring_thetas, ring_theta_ndcs, radii] = rdatasharing_1f(thetas, ...
 	frame_theta_ndcs, max_radius, Nyq, arg)
+	if arg.vary_rings
+		[ring_thetas, ring_theta_ndcs, radii] = rdatasharing_1f_set_Nyq( ...
+			thetas, frame_theta_ndcs, max_radius, Nyq, arg);
+	else
+		[ring_thetas, ring_theta_ndcs, radii] = rdatasharing_1f_set_rings(...
+			thetas, frame_theta_ndcs, max_radius, Nyq, arg);
+	end
+end
+
+% datasharing over 1 frame with varying ring size
+function [ring_thetas, ring_theta_ndcs, radii] = rdatasharing_1f_set_Nyq(...
+	thetas, frame_theta_ndcs, max_radius, Nyq, arg)
 	meet_Nyquist = false;
 	ring_ndx = 1;
-	if arg.vary_rings
-		% add 1 spoke before and after, create new ring
-		radii(1) = 0;
-		while(radii(end) < max_radius)
-			reach = 1;
-			while(true)
-				if ring_ndx == 1
-				ring_theta_ndcs{ring_ndx} = augment_ndx(frame_theta_ndcs, ...
-					reach, reach, arg);
-				else
-				ring_theta_ndcs{ring_ndx} = augment_ndx(ring_theta_ndcs{ring_ndx - 1}, ...
-					reach, reach, arg);
-				end
-				ring_thetas{ring_ndx} = thetas(ring_theta_ndcs{ring_ndx});
-				radii(ring_ndx) = Nyquist_radius(ring_thetas{ring_ndx}, Nyq);
-				%meet_Nyquist = 
-				if (ring_ndx == 1) || (radii(ring_ndx) > radii(ring_ndx - 1))
-					break;
-				end
-				reach = reach + 1;
+	% add 1 spoke before and after, create new ring
+	radii(1) = 0;
+	while(radii(end) < max_radius)
+		reach = 1;
+		while(true)
+			if ring_ndx == 1
+			ring_theta_ndcs{ring_ndx} = augment_ndx(frame_theta_ndcs, ...
+				reach, reach, arg);
+			else
+			ring_theta_ndcs{ring_ndx} = augment_ndx(ring_theta_ndcs{ring_ndx - 1}, ...
+				reach, reach, arg);
 			end
-			
-			if ring_ndx > 1000
-				display(sprintf('so many rings?! %d! something buggy...', ...
-					ring_ndx));
+			ring_thetas{ring_ndx} = thetas(ring_theta_ndcs{ring_ndx});
+			radii(ring_ndx) = Nyquist_radius(ring_thetas{ring_ndx}, Nyq);
+			%meet_Nyquist = 
+			if (ring_ndx == 1) || (radii(ring_ndx) > radii(ring_ndx - 1))
+				break;
+			end
+			reach = reach + 1;
+		end
+
+		if ring_ndx > 1000
+			display(sprintf('so many rings?! %d! something buggy...', ...
+				ring_ndx));
+			keyboard;
+		end
+
+		ring_ndx = ring_ndx + 1;
+	end
+end
+
+% datasharing over 1 frame with set ring size
+function [ring_thetas, ring_theta_ndcs, radii] = rdatasharing_1f_set_rings(...
+	thetas, frame_theta_ndcs, max_radius, Nyq, arg)
+	% set rings to be some preset distance, add spokes as necessary
+	% for now, just even sized radii
+	meet_Nyquist = false;
+	ring_ndx = 1;
+	rng(0);
+	
+	curr_thetas = thetas(frame_theta_ndcs);
+	min_radius = Nyquist_radius(curr_thetas, Nyq);
+	if min_radius > max_radius
+		radii = min_radius;
+	else
+		radii = min_radius:min_radius:max_radius;
+		radii = [radii max_radius];
+	end
+	Nrings = length(radii);
+	% 		ring_theta_ndcs = repmat({frame_theta_ndcs}, 1, Nrings);
+	% 		ring_thetas = repmat({curr_thetas}, 1, Nrings);
+	for ring_ndx = 1:Nrings
+		if ring_ndx == 1
+			ring_theta_ndcs{1} = frame_theta_ndcs;
+			ring_thetas{1} = curr_thetas;
+		else
+			ring_theta_ndcs{ring_ndx} = ring_theta_ndcs{ring_ndx - 1};
+			ring_thetas{ring_ndx} = ring_thetas{ring_ndx - 1};
+		end
+		curr_Nyq = Nyquist_radius(ring_thetas{ring_ndx}, Nyq);
+		meet_Nyquist = (radii(ring_ndx) <= curr_Nyq);
+		counter = 0;
+		while(~meet_Nyquist)
+			[left_augment, lchange] = augment_ndx(...
+				ring_theta_ndcs{ring_ndx}, 1, 0, arg);
+			[right_augment, rchange] = augment_ndx(...
+				ring_theta_ndcs{ring_ndx}, 0, 1, arg);
+
+			if ~lchange && ~rchange
+				display(sprintf('reached all frames on ring %d', ring_ndx));
+				break;
+			end
+
+			radius_reach_left = azim_dist(thetas(left_augment), radii(ring_ndx));
+			radius_reach_right = azim_dist(thetas(right_augment), radii(ring_ndx));
+			if (radius_reach_left == radius_reach_right)
+				rand_dir = (rand > 0.5);
+			else
+				rand_dir = NaN;
+			end
+			if (radius_reach_left < radius_reach_right) || (~isnan(rand_dir) && rand_dir)
+				ring_theta_ndcs{ring_ndx} = augment_ndx(...
+					ring_theta_ndcs{ring_ndx}, 1, 0, arg);
+			elseif (radius_reach_left > radius_reach_right) || (~isnan(rand_dir) && ~rand_dir)
+				ring_theta_ndcs{ring_ndx} = augment_ndx(...
+					ring_theta_ndcs{ring_ndx}, 0, 1, arg);
+			else
 				keyboard;
 			end
-			
-			ring_ndx = ring_ndx + 1;
-		end
-		
-	else
-		% set rings to be some preset distance, add spokes as necessary
-		% for now, just even sized radii
-		curr_thetas = thetas(frame_theta_ndcs);
-		min_radius = Nyquist_radius(curr_thetas, Nyq);
-		if min_radius > max_radius
-			radii = min_radius;
-		else
-			radii = min_radius:min_radius:max_radius;
-			radii = [radii max_radius];
-		end
-		Nrings = length(radii);
-% 		ring_theta_ndcs = repmat({frame_theta_ndcs}, 1, Nrings);
-% 		ring_thetas = repmat({curr_thetas}, 1, Nrings);
-		for ring_ndx = 1:Nrings
-			if ring_ndx == 1
-				ring_theta_ndcs{1} = frame_theta_ndcs;
-				ring_thetas{1} = curr_thetas;
-			else
-				ring_theta_ndcs{ring_ndx} = ring_theta_ndcs{ring_ndx - 1};
-				ring_thetas{ring_ndx} = ring_thetas{ring_ndx - 1};
-			end
-			curr_Nyq = Nyquist_radius(ring_thetas{ring_ndx}, Nyq);
-			meet_Nyquist = (radii(ring_ndx) <= curr_Nyq);
-			counter = 0;
-			while(~meet_Nyquist)
-				[left_augment, lchange] = augment_ndx(...
-					ring_theta_ndcs{ring_ndx}, 1, 0, arg);
-				[right_augment, rchange] = augment_ndx(...
-					ring_theta_ndcs{ring_ndx}, 0, 1, arg);
-				
-				if ~lchange && ~rchange
-					display(sprintf('reached all frames on ring %d', ring_ndx));
-					break;
-				end
-				
-				radius_reach_left = azim_dist(thetas(left_augment), radii(ring_ndx));
-				radius_reach_right = azim_dist(thetas(right_augment), radii(ring_ndx));
-				if (radius_reach_left == radius_reach_right) 
-					rand_dir = (rand > 0.5);
-				else
-					rand_dir = NaN;
-				end
-				if (radius_reach_left < radius_reach_right) || (~isnan(rand_dir) && rand_dir)
-					ring_theta_ndcs{ring_ndx} = augment_ndx(...
-						ring_theta_ndcs{ring_ndx}, 1, 0, arg);
-				elseif (radius_reach_left > radius_reach_right) || (~isnan(rand_dir) && ~rand_dir)
-					ring_theta_ndcs{ring_ndx} = augment_ndx(...
-						ring_theta_ndcs{ring_ndx}, 0, 1, arg);
-				else
-					keyboard;
-				end
-				ring_thetas{ring_ndx} = thetas(ring_theta_ndcs{ring_ndx});
-				meet_Nyquist = radii(ring_ndx) <= Nyquist_radius(...
-					ring_thetas{ring_ndx}, Nyq);
-				
-				counter = counter + 1;
-				if counter > arg.Nspokes
-					keyboard;
-				end
+			ring_thetas{ring_ndx} = thetas(ring_theta_ndcs{ring_ndx});
+			meet_Nyquist = radii(ring_ndx) <= Nyquist_radius(...
+				ring_thetas{ring_ndx}, Nyq);
+
+			counter = counter + 1;
+			if counter > arg.Nspokes
+				keyboard;
 			end
 		end
 	end
 end
 
+% convert Cartesian freqs to radial coordinates
 function [thetas, radii] = Cartesian_to_radial(freqs)
 % do some averaging to deal with roundoff error
 % assume each row of freqs corresponds to one spoke
 % NOTE: spoke direction agnostic
-thetas = mod(angle(freqs), pi);
-radii = abs(freqs);
-thetas = mode(thetas,1);
+	thetas = mod(angle(freqs), pi);
+	radii = abs(freqs);
+	thetas = mode(thetas,1);
 end
+
 
 function [aug_ndcs, changed] = augment_ndx(ndcs, left, right, arg)
 % does auto clipping at [1 arg.Nspokes]
@@ -327,7 +446,7 @@ function [aug_ndcs, changed] = augment_ndx(ndcs, left, right, arg)
 	assert(all(mod([left right],1) == zeros(1,2)), ...
 		'invalid augment left/right values');
 
-% check that you only have consectuive indeces
+% check that you only have consecutive indeces
 	diffs = ndcs(2:end) - ndcs(1:end-1);
 	assert(unique(diffs) == 1, 'current ndcs are nonconsecutive');
 	assert(min(ndcs) >= 1, 'invalid lower ndx');
@@ -340,12 +459,14 @@ function [aug_ndcs, changed] = augment_ndx(ndcs, left, right, arg)
 	changed = ~(left_clip == 0 && right_clip == 0);
 end
 
+% ??
 function Nyq_radius = Nyquist_radius(thetas, Nyq)
 % unit agnostic, outputs value in same units as Nyq input
 	unit_adist = azim_dist(thetas, 1);
 	Nyq_radius = Nyq/unit_adist;
 end
 
+% gives azimuthal distance
 function max_adist = azim_dist(thetas, radius)
 % calculate maximum azimuthal distance between a set of radial spokes of
 % fixed radius, assuming that intra-spoke sampling distance is smaller
@@ -368,13 +489,14 @@ for gap_ndx = 1:length(thetas)
 end
 end
 
+% Euclidean distance
 function dist = dist(x,y)
 % good for complex vals
 	dist = sqrt(sum(abs(x - y).^2));
 end 
 
-function plot_thetas(thetas, radii, varargin)
 % plot annular segments of spokes
+function plot_thetas(thetas, radii, varargin)
 % assume thetas in cells
 % TO DO: enforce same color for spokes in each annulus
 % if Nyquist varargin not empty, will plot violations
@@ -435,8 +557,8 @@ if ~isempty(arg.title) &&ischar(arg.title)
 end
 end
 
+% trivial case of no datasharing, just mutually exclusive assignment
 function frame_members = trivial_datashare(arg)
-% trivial case of no datasharing
 	switch arg.format
 		case {'logical','sparse'}
 			in_frame = kron(eye(arg.Nf),ones(arg.Nspokespf,1));
@@ -458,29 +580,56 @@ function frame_members = trivial_datashare(arg)
 	
 end
 
-function radial_datasharing_test()
-	%close all;
-	arg.Nspokes = 36;
-	arg.Nf = 6;
-	Nyq = 3;
-	rng(2);
-	thetas = 2*pi*rand(1, arg.Nspokes);
-	
-	% Calculate angles for Golden-Angle mode
-	GA = 111.246117975/180*pi;
-	thetas = [pi/2:GA:GA*arg.Nspokes];
-	thetas = mod(thetas,2*pi);
-	%figure; plot_thetas({thetas}, 1);
-	
-	freqs = kron(col([-10:0.2:10]), exp(1i*thetas));
-	%figure; scatter(real(freqs(:)), imag(freqs(:)));
-	%frame_members = radial_datasharing(freqs, rand(size(freqs)), Nyq, 'Nf', ...
-%		arg.Nf, 'format','cells');
-	
-	[frame_members, ds_freqs, ds_data, Ns] = radial_datasharing(freqs, ...
-		rand(size(freqs)), Nyq, 'Nf', arg.Nf);
-	keyboard;
-	%frame_members = radial_datasharing(freqs, rand(size(freqs)), Nyq, 'Nf', ...
-	%	arg.Nf, 'vary_rings', 1);
-	%[thetas, radii] = Cartesian_to_radial(freqs);
+% demo/test method
+function radial_datasharing_test(datapath)
+	synthetic = 0;
+	if synthetic
+		arg.Nspokes = 48;
+		arg.Nf = 6;
+		Nyq = 1.5;
+		rng(2);
+		thetas = 2*pi*rand(1, arg.Nspokes);
+
+		% Calculate angles for Golden-Angle mode
+		GA = 111.246117975/180*pi;
+		thetas = [pi/2:GA:GA*arg.Nspokes];
+		thetas = mod(thetas,2*pi);
+		freqs = kron(col([-10:0.2:10]), exp(1i*thetas));
+
+		[ds_data, frame_members, ds_freqs, Ns, ds_dcf] = radial_datasharing(freqs, ...
+			rand(size(freqs)), Nyq, 'Nf', arg.Nf, 'figs_on', 1);
+	else
+	% GRASP patient data, put datapath in 2nd field (data)
+		datafile = ['./XDGRASP_patient1_fast.mat'];
+		if exist(datafile, 'file')
+			load(datafile);
+		end
+		
+		Nyq = 0.07;
+		Nf = 20;
+		trunc = 1000; % number of spokes, must be <= 1000
+		params.Nspokes = trunc;
+		
+		% do one coil at a time, only do full calc for 1st
+		coil_ndx = 1;
+		[ds_data(:, coil_ndx), frame_members(:,:,:,coil_ndx), ds_freqs(:, coil_ndx), ...
+				 ds_Ns(:, coil_ndx), ds_dcf(:, coil_ndx)] = ...
+				radial_datasharing(k(:,1:trunc), ...
+				data(:,1:trunc,coil_ndx), Nyq, 'Nf', Nf);
+		for coil_ndx = 2:params.Nc
+			[ds_data(:, coil_ndx)] = ...
+				radial_datasharing(k(:,1:trunc), ...
+				data(:,1:trunc,coil_ndx), Nyq, 'Nf', Nf);
+			display(sprintf('done with coil %d/%d', coil_ndx, params.Nc))
+		end
+		figure; im(permute(frame_members, [2 3 1]));
+		% to do: find way to assign data to a frame members of another coil
+
+		F = GsplineF_NC(ds_freqs, ds_Ns, params.Nro, params.Nspokes, Nf, params.Nx, params.Ny, params.Nc);%!!!!
+		sos = sos_combine(F'*(repmat(ds_dcf, 1, params.Nc).*ds_data),[],[]);
+		figure; im(sos); 
+		title('with datasharing and Voronoi dcf');
+		figure; im(sos_combine(F'*ds_data,[],[])); 
+		title('with datasharing and NO dcf');
+	end
 end
