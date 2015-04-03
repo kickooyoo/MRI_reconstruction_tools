@@ -60,7 +60,10 @@ function [ds_data, frame_members, ds_freqs, Ns, ds_dcf] = radial_datasharing(fre
 %
 % Mai Le, University of Michigan, 01/26/15
 
-if nargin < 3 && streq(freqs, 'test')
+if nargin == 1 && streq(freqs, 'test')
+	radial_datasharing_test();
+	return
+elseif nargin == 3 & streq(freqs, 'test')
 	radial_datasharing_test(data);
 	return
 end
@@ -190,7 +193,8 @@ function [ds_freqs, ds_data, Ns, ds_dcf] = format_outputs(freqs, data, frame_mem
 				if arg.nargout == 5
 					curr_freqs = col_freqs(find(curr_members));
 					if ~isempty(curr_freqs)
-						curr_dcf = calculate_voronoi_dcf(curr_freqs, arg);
+						delta_ro = 1/size(frame_members,2); % normalized freq/Nro
+						curr_dcf = calculate_voronoi_dcf(curr_freqs, delta_ro, arg);
 					end
 					Ns(frame_ndx) = numel(find(curr_members));
 					ds_freqs = [ds_freqs; curr_freqs];
@@ -208,7 +212,7 @@ function [ds_freqs, ds_data, Ns, ds_dcf] = format_outputs(freqs, data, frame_mem
 end
 
 % gives voronoi area for a set of frequency points
-function dcf = calculate_voronoi_dcf(freqs, arg)
+function dcf = calculate_voronoi_dcf(freqs, delta_ro, arg)
 	if arg.figs_on
 		try
 			voronoi(real(freqs), imag(freqs))
@@ -236,22 +240,26 @@ function dcf = calculate_voronoi_dcf(freqs, arg)
 			end
 			tmpx_trunc = tmpx(~isinf(tmpx));
 			tmpy_trunc = tmpy(~isinf(tmpy));
-			x_diff = abs(tmpx_trunc(1)-tmpx_trunc(2));
-			y_diff = abs(tmpy_trunc(1)-tmpy_trunc(2));
-			line1 = tmpy_trunc(1)/tmpx_trunc(1);
-			line2 = tmpy_trunc(2)/tmpx_trunc(2);
-			if y_diff < x_diff
-				% along top or bottom edge
-				new1 = sign(tmpy_trunc(1))*[0.5/line1 0.5];
-				new2 = sign(tmpy_trunc(1))*[0.5/line2 0.5];
-			else
-				% along left or right edge
-				new1 = sign(tmpx_trunc(1))*[0.5 0.5*line1];
-				new2 = sign(tmpx_trunc(1))*[0.5 0.5*line2];
-			end
-			% take care of corner pieces
-			new1 = max(min(new1, 0.5), -0.5);
-			new2 = max(min(new2, 0.5), -0.5);
+%			x_diff = abs(tmpx_trunc(1)-tmpx_trunc(2));
+% 			y_diff = abs(tmpy_trunc(1)-tmpy_trunc(2));
+% 			line1 = tmpy_trunc(1)/tmpx_trunc(1);
+% 			line2 = tmpy_trunc(2)/tmpx_trunc(2);
+% 			if y_diff < x_diff
+% 				% along top or bottom edge
+% 				new1 = sign(tmpy_trunc(1))*[0.5/line1 0.5];
+% 				new2 = sign(tmpy_trunc(1))*[0.5/line2 0.5];
+% 			else
+% 				% along left or right edge
+% 				new1 = sign(tmpx_trunc(1))*[0.5 0.5*line1];
+% 				new2 = sign(tmpx_trunc(1))*[0.5 0.5*line2];
+% 			end
+% 			% take care of corner pieces
+% 			new1 = max(min(new1, 0.5), -0.5);
+% 			new2 = max(min(new2, 0.5), -0.5);
+			radius1 = dist([tmpy_trunc(1) tmpx_trunc(1)], [0 0]);
+			radius2 = dist([tmpy_trunc(2) tmpx_trunc(2)], [0 0]);
+			new1 = [tmpx_trunc(1) tmpy_trunc(1)]*(radius1 + delta_ro)/radius1;
+			new2 = [tmpx_trunc(2) tmpy_trunc(2)]*(radius2 + delta_ro)/radius2;
 			tmpx = cat(1, tmpx_trunc, new1(1), new2(1));
 			tmpy = cat(1, tmpy_trunc, new1(2), new2(2));
 			if arg.figs_on && (mod(jj,6) == 0)
@@ -581,7 +589,9 @@ function frame_members = trivial_datashare(arg)
 end
 
 % demo/test method
-function radial_datasharing_test(datapath)
+function radial_datasharing_test(varargin)
+	arg.datapath = '.';
+	arg = vararg_pair(arg, varargin);
 	synthetic = 0;
 	if synthetic
 		arg.Nspokes = 48;
@@ -600,14 +610,14 @@ function radial_datasharing_test(datapath)
 			rand(size(freqs)), Nyq, 'Nf', arg.Nf, 'figs_on', 1);
 	else
 	% GRASP patient data, put datapath in 2nd field (data)
-		datafile = ['./XDGRASP_patient1_fast.mat'];
+		datafile = [arg.datapath '/XDGRASP_patient1_fast.mat'];
 		if exist(datafile, 'file')
 			load(datafile);
 		end
 		
-		Nyq = 0.07;
-		Nf = 20;
-		trunc = 1000; % number of spokes, must be <= 1000
+		Nyq = 0.05;
+		Nf = 10;
+		trunc = 100; % number of spokes, must be <= 1000
 		params.Nspokes = trunc;
 		
 		% do one coil at a time, only do full calc for 1st
@@ -615,7 +625,7 @@ function radial_datasharing_test(datapath)
 		[ds_data(:, coil_ndx), frame_members(:,:,:,coil_ndx), ds_freqs(:, coil_ndx), ...
 				 ds_Ns(:, coil_ndx), ds_dcf(:, coil_ndx)] = ...
 				radial_datasharing(k(:,1:trunc), ...
-				data(:,1:trunc,coil_ndx), Nyq, 'Nf', Nf);
+				data(:,1:trunc,coil_ndx), Nyq, 'Nf', Nf, 'figs_on', 1);
 		for coil_ndx = 2:params.Nc
 			[ds_data(:, coil_ndx)] = ...
 				radial_datasharing(k(:,1:trunc), ...
