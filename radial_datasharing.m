@@ -264,7 +264,15 @@ function dcf = calculate_voronoi_dcf(freqs, delta_ro, arg)
 	dcf(new_zero) = zero_val/numel(at_zero);
 	for ii=2:length(at_zero)
 		insert = at_zero(ii);
+		if (insert > length(dcf))
+			keyboard;
+		end
+		try
 		dcf = [dcf(1:insert-1); dcf(new_zero); dcf(insert:end)];
+		catch
+			display('bad dcf insert values');
+			keyboard;
+		end
 	end
 	if ~all(size(dcf) == size(freqs))
 		display('size mismatch with dcf and freqs');
