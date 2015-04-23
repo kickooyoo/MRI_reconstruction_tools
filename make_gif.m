@@ -10,7 +10,6 @@ if ~exist([filename '.gif'])
 	figure;
 	max_val = max(x);
 	min_val = min(x);
-<<<<<<< HEAD
 	for ff = 1:size(x,3)
 		im(x(:,:,ff), [min_val max_val]);
 		drawnow;
@@ -21,19 +20,6 @@ if ~exist([filename '.gif'])
 			imwrite(imind,cm, [filename '.gif'], 'gif', 'Loopcount',inf);
 		else
 			imwrite(imind,cm, [filename '.gif'],'gif','WriteMode','append');
-=======
-		for ff = 1:size(x,3)
-   			im(x(:,:,ff), [min_val max_val]);
-			drawnow;
-			frame = getframe();
-			img = frame2im(frame);
-			[imind, cm] = rgb2ind(img,32);
-			if ff == 1;
-			    imwrite(imind,cm, [filename '.gif'], 'gif', 'Loopcount',inf);
-			else
-			   imwrite(imind,cm, [filename '.gif'],'gif','WriteMode','append');
-			end
->>>>>>> fbc12b9a1434e9d2646970ab8fee6660b867f17b
 		end
 	end
 else
