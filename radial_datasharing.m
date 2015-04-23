@@ -218,14 +218,17 @@ end
 
 % gives voronoi area for a set of frequency points
 function dcf = calculate_voronoi_dcf(freqs, delta_ro, arg)
+	at_zero = find(freqs == 0);
+	uniq_freqs = freqs(setdiff(1:length(freqs),at_zero(2:end)));
+	new_zero = find(uniq_freqs == 0);
 	if arg.figs_on
 		try
-			voronoi(real(freqs), imag(freqs))
+			voronoi(real(uniq_freqs), imag(uniq_freqs))
 		catch
 			keyboard;
 		end
 	end
-	[vor_v, vor_c] = voronoin([real(freqs) imag(freqs)]);
+	[vor_v, vor_c] = voronoin([real(uniq_freqs) imag(uniq_freqs)]);
 	for ii = 1 : size(vor_c ,1)
 		ind = vor_c{ii}';
 		tess_area(ii,1) = polyarea(vor_v(2:end,1), vor_v(2:end,2));
@@ -246,26 +249,12 @@ function dcf = calculate_voronoi_dcf(freqs, delta_ro, arg)
 			else
 			tmpx_trunc = tmpx(~isinf(tmpx));
 			tmpy_trunc = tmpy(~isinf(tmpy));
-%			x_diff = abs(tmpx_trunc(1)-tmpx_trunc(2));
-% 			y_diff = abs(tmpy_trunc(1)-tmpy_trunc(2));
-% 			line1 = tmpy_trunc(1)/tmpx_trunc(1);
-% 			line2 = tmpy_trunc(2)/tmpx_trunc(2);
-% 			if y_diff < x_diff
-% 				% along top or bottom edge
-% 				new1 = sign(tmpy_trunc(1))*[0.5/line1 0.5];
-% 				new2 = sign(tmpy_trunc(1))*[0.5/line2 0.5];
-% 			else
-% 				% along left or right edge
-% 				new1 = sign(tmpx_trunc(1))*[0.5 0.5*line1];
-% 				new2 = sign(tmpx_trunc(1))*[0.5 0.5*line2];
-% 			end
-% 			% take care of corner pieces
-% 			new1 = max(min(new1, 0.5), -0.5);
-% 			new2 = max(min(new2, 0.5), -0.5);
-			radius1 = dist([tmpy_trunc(1) tmpx_trunc(1)], [0 0]);
-			radius2 = dist([tmpy_trunc(2) tmpx_trunc(2)], [0 0]);
-			new1 = [tmpx_trunc(1) tmpy_trunc(1)]*(radius1 + delta_ro)/radius1;
-			new2 = [tmpx_trunc(2) tmpy_trunc(2)]*(radius2 + delta_ro)/radius2;
+			dists = dist([tmpx_trunc tmpy_trunc]', zeros(2, length(tmpx_trunc)));
+			[sorted_dists, dist_ndcs] = sort(dists);
+			radius1 = dist([tmpy_trunc(dist_ndcs(1)) tmpx_trunc(dist_ndcs(1))], [0 0]);
+			radius2 = dist([tmpy_trunc(dist_ndcs(2)) tmpx_trunc(dist_ndcs(2))], [0 0]);
+			new1 = [tmpx_trunc(dist_ndcs(1)) tmpy_trunc(dist_ndcs(1))]*(radius1 + delta_ro)/radius1;
+			new2 = [tmpx_trunc(dist_ndcs(2)) tmpy_trunc(dist_ndcs(2))]*(radius2 + delta_ro)/radius2;
 			tmpx = cat(1, tmpx_trunc, new1(1), new2(1));
 			tmpy = cat(1, tmpy_trunc, new1(2), new2(2));
 			if arg.figs_on && (mod(jj,6) == 0)
@@ -283,6 +272,17 @@ function dcf = calculate_voronoi_dcf(freqs, delta_ro, arg)
 		end
 	end
 	dcf = col(A);
+	% add zero value back in
+	zero_val = dcf(new_zero);
+	dcf(new_zero) = zero_val/numel(at_zero);
+	for ii=2:length(at_zero)
+		insert = at_zero(ii);
+		dcf = [dcf(1:insert-1); dcf(new_zero); dcf(insert:end)];
+	end
+	if ~all(size(dcf) == size(freqs))
+		display('size mismatch with dcf and freqs');
+		keyboard;
+	end
 end
 
 % ??
