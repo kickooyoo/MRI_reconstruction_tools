@@ -167,6 +167,11 @@ end
 
 [ds_freqs, ds_data, Ns, ds_dcf] = format_outputs(freqs, data, frame_members, arg);
 
+if (~all(size(ds_dcf) == size(ds_freqs)))
+	display('mismatched size for dcf and freqs');
+	keyboard;
+end
+
 % ----------------- show results -------------
 if arg.figs_on
 	figure; im(permute(frame_members, [2 3 1]));
@@ -236,8 +241,9 @@ function dcf = calculate_voronoi_dcf(freqs, delta_ro, arg)
 			% approximate +- 0.5 boundary
 			if length(tmpx) ~= 3
 				display('unknown Voronoi shape');
-				keyboard;
-			end
+				% hacky
+				A(jj) = 0;
+			else
 			tmpx_trunc = tmpx(~isinf(tmpx));
 			tmpy_trunc = tmpy(~isinf(tmpy));
 %			x_diff = abs(tmpx_trunc(1)-tmpx_trunc(2));
@@ -272,6 +278,8 @@ function dcf = calculate_voronoi_dcf(freqs, delta_ro, arg)
 				keyboard;
 			end
 			A(jj) = polyarea(tmpx, tmpy);
+			
+			end
 		end
 	end
 	dcf = col(A);
