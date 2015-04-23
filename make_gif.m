@@ -10,7 +10,7 @@ if ~exist([filename '.gif'])
 	figure; 
 	max_val = max(x);
 	min_val = min(x);
-		    for ff = 1:size(x,3)
+		for ff = 1:size(x,3)
    			im(x(:,:,ff), [min_val max_val]);
 			drawnow;
 			frame = getframe();
@@ -22,6 +22,7 @@ if ~exist([filename '.gif'])
 			   imwrite(imind,cm, [filename '.gif'],'gif','WriteMode','append');
 			end
 		end
-  		else
+	end
+else
 	display(sprintf('filename %s.gif already exists!', filename));
 end
