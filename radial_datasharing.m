@@ -175,6 +175,7 @@ end
 % ----------------- show results -------------
 if arg.figs_on
 	figure; im(permute(frame_members, [2 3 1]));
+	title('frame membership');
 end
 
 end
@@ -218,75 +219,100 @@ end
 
 % gives voronoi area for a set of frequency points
 function dcf = calculate_voronoi_dcf(freqs, delta_ro, arg)
-	at_zero = find(freqs == 0);
-	uniq_freqs = freqs(setdiff(1:length(freqs),at_zero(2:end)));
-	new_zero = find(uniq_freqs == 0);
+% 	at_zero = find(freqs == 0);
+% 	uniq_freqs = freqs(setdiff(1:length(freqs),at_zero(2:end)));
+% 	new_zero = find(uniq_freqs == 0);
+	
+	% try more robust duplicate handling by dong unique manually
+	for ii = 1:length(freqs)
+		all_instances = find(freqs == freqs(ii));
+		if length(all_instances) < 1, keyboard; end
+		if max(all_instances) > length(freqs), keyboard; end
+		first_instance(ii) = all_instances(1);
+	end
+	uniq_freqs = freqs(find(first_instance == (1:length(freqs))));
+	
 	if arg.figs_on
 		try
+			figure;
 			voronoi(real(uniq_freqs), imag(uniq_freqs))
 		catch
 			keyboard;
 		end
 	end
 	[vor_v, vor_c] = voronoin([real(uniq_freqs) imag(uniq_freqs)]);
-	for ii = 1 : size(vor_c ,1)
-		ind = vor_c{ii}';
-		tess_area(ii,1) = polyarea(vor_v(2:end,1), vor_v(2:end,2));
-	end
-	if arg.figs_on
-		figure;
-	end
+% 	for ii = 1 : size(vor_c ,1)
+% 		ind = vor_c{ii}';
+% 		tess_area(ii,1) = polyarea(vor_v(2:end,1), vor_v(2:end,2));
+% 	end
+% 	if arg.figs_on
+% 		figure;
+% 	end
 	for jj = 1:length(vor_c)
 		A(jj) = polyarea(vor_v(vor_c{jj},1), vor_v(vor_c{jj},2));
-		if isnan(A(jj))
-			tmpx = vor_v(vor_c{jj},1);
-			tmpy = vor_v(vor_c{jj},2);
+		tmpx = vor_v(vor_c{jj},1);
+		tmpy = vor_v(vor_c{jj},2);
+		out_of_bounds = any(dist([tmpx tmpy], zeros(size(tmpx,1),2)) > 0.5);
+% 			any(abs(tmpx) > 0.5) | any(abs(tmpy) > 0.5);
+		if isnan(A(jj)) || out_of_bounds
 			% approximate +- 0.5 boundary
 			if length(tmpx) ~= 3
 				display('unknown Voronoi shape');
 				% hacky
 				A(jj) = 0;
-			else
-			tmpx_trunc = tmpx(~isinf(tmpx));
-			tmpy_trunc = tmpy(~isinf(tmpy));
-			dists = dist([tmpx_trunc tmpy_trunc]', zeros(2, length(tmpx_trunc)));
-			[sorted_dists, dist_ndcs] = sort(dists);
-			radius1 = dist([tmpy_trunc(dist_ndcs(1)) tmpx_trunc(dist_ndcs(1))], [0 0]);
-			radius2 = dist([tmpy_trunc(dist_ndcs(2)) tmpx_trunc(dist_ndcs(2))], [0 0]);
-			new1 = [tmpx_trunc(dist_ndcs(1)) tmpy_trunc(dist_ndcs(1))]*(radius1 + delta_ro)/radius1;
-			new2 = [tmpx_trunc(dist_ndcs(2)) tmpy_trunc(dist_ndcs(2))]*(radius2 + delta_ro)/radius2;
-			tmpx = cat(1, tmpx_trunc, new1(1), new2(1));
-			tmpy = cat(1, tmpy_trunc, new1(2), new2(2));
-			if arg.figs_on && (mod(jj,6) == 0)
-				scatter(tmpx, tmpy); hold on; 
-				scatter(tmpx_trunc, tmpy_trunc); 
-				axis([-0.5 0.5 -0.5 0.5])
-			end
-			if ~all(size(tmpx) == size(tmpy))
-				display('size mismatch');
+			elseif out_of_bounds
 				keyboard;
-			end
-			A(jj) = polyarea(tmpx, tmpy);
-			
+			else
+				tmpx_trunc = tmpx(~isinf(tmpx));
+				tmpy_trunc = tmpy(~isinf(tmpy));
+				dists = dist([tmpx_trunc tmpy_trunc]', zeros(2, length(tmpx_trunc)));
+				[sorted_dists, dist_ndcs] = sort(dists);
+				radius1 = dist([tmpy_trunc(dist_ndcs(1)) tmpx_trunc(dist_ndcs(1))], [0 0]);
+				radius2 = dist([tmpy_trunc(dist_ndcs(2)) tmpx_trunc(dist_ndcs(2))], [0 0]);
+				new1 = [tmpx_trunc(dist_ndcs(1)) tmpy_trunc(dist_ndcs(1))]*(radius1 + delta_ro)/radius1;
+				new2 = [tmpx_trunc(dist_ndcs(2)) tmpy_trunc(dist_ndcs(2))]*(radius2 + delta_ro)/radius2;
+				tmpx = cat(1, tmpx_trunc, new1(1), new2(1));
+				tmpy = cat(1, tmpy_trunc, new1(2), new2(2));
+				if arg.figs_on && (mod(jj,6) == 0)
+					scatter(tmpx, tmpy); hold on;
+					scatter(tmpx_trunc, tmpy_trunc);
+					axis([-0.5 0.5 -0.5 0.5])
+				end
+				if ~all(size(tmpx) == size(tmpy))
+					display('size mismatch');
+					keyboard;
+				end
+				A(jj) = polyarea(tmpx, tmpy);
+				
 			end
 		end
 	end
-	dcf = col(A);
+	uniq_dcf = col(A);
+	
 	% add zero value back in
-	zero_val = dcf(new_zero);
-	dcf(new_zero) = zero_val/numel(at_zero);
-	for ii=2:length(at_zero)
-		insert = at_zero(ii);
-		if (insert > length(dcf))
-			keyboard;
-		end
-		try
-		dcf = [dcf(1:insert-1); dcf(new_zero); dcf(insert:end)];
-		catch
-			display('bad dcf insert values');
-			keyboard;
-		end
+	% 	zero_val = dcf(new_zero);
+% 	dcf(new_zero) = zero_val/numel(at_zero);
+% 	for ii=2:length(at_zero)
+% 		insert = at_zero(ii);
+% 		if (insert > length(dcf))
+% 			keyboard;
+% 		end
+% 		try
+% 		dcf = [dcf(1:insert-1); dcf(new_zero); dcf(insert:end)];
+% 		catch
+% 			display('bad dcf insert values');
+% 			keyboard;
+% 		end
+% 	end
+	% add repeated values back in
+	uniq_spread_dcf = embed(uniq_dcf, first_instance == (1:length(freqs)));
+	for ii = 1:length(freqs)
+		if first_instance(ii) > length(uniq_spread_dcf), keyboard; end
+		num_occurences = length(find(first_instance == first_instance(ii)));
+		dcf(ii) = uniq_spread_dcf(first_instance(ii))/num_occurences;
 	end
+	dcf = col(dcf);
+
 	if ~all(size(dcf) == size(freqs))
 		display('size mismatch with dcf and freqs');
 		keyboard;
