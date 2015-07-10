@@ -4,8 +4,9 @@ function dcf = calculate_voronoi_dcf(freqs, delta_ro, arg)
 % gives voronoi area for a set of frequency points, allows for duplicate
 % points (e.g. at DC)
 %
-%
-arg.pad_ring = true;
+% pad ring makes an evenly spaced ring but can create weird edge polygons
+arg.pad_ring = false;
+arg.pad_spokes = true;
 
 % pare down all frequencies into set of unique points
 % cannot use Matlab's unique because need to reexpand at end
@@ -20,8 +21,13 @@ Nuniq = length(uniq_freqs);
 
 if arg.pad_ring
 	max_radius = max(abs(col(uniq_freqs)));
-	Npad = 2*sum(abs(abs(freqs) - max_radius) < delta_ro*1e-4);
-	ring = (max_radius + delta_ro)*exp(-1*i*linspace(0,2*pi,Npad)');
+	Npad = 4*sum(abs(abs(freqs) - arg.max_radius) < delta_ro*1e-4);
+	ring = (arg.max_radius + delta_ro)*exp(1*i*linspace(0,2*pi,Npad)');
+	uniq_freqs = [uniq_freqs; ring];
+elseif arg.pad_spokes
+	uniq_angles = unique(angle([uniq_freqs; -uniq_freqs]));
+	Npad = numel(uniq_angles);
+	ring = (arg.max_radius + delta_ro)*exp(1*i*uniq_angles);
 	uniq_freqs = [uniq_freqs; ring];
 end
 
@@ -47,7 +53,7 @@ for jj = 1:Nuniq
 	tmpx = vor_v(vor_c{jj},1);
 	tmpy = vor_v(vor_c{jj},2);
 	out_of_bounds = any(dist([tmpx'; tmpy'], zeros(2, size(tmpx,1))) > ...
-		arg.max_radius + arg.pad_ring*delta_ro);
+		arg.max_radius + (arg.pad_ring+arg.pad_spokes)*delta_ro);
 	if isnan(A(jj)) || out_of_bounds
 		display('invalid polygon');
 		keyboard;
