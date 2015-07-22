@@ -113,7 +113,7 @@ while (true)
 	ylabel('voxel value');
 	if ~isempty(arg.texts)
 		hlegend = legend(arg.texts);
-		set(hlegend, 'Location', 'southoutside', 'FontSize', 8);
+		set(hlegend, 'Location', 'southoutside', 'FontSize', 12);
 	end
 	drawnow;
 	hold off;
