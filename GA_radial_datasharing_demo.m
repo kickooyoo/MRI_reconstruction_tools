@@ -11,13 +11,13 @@ Fibo = 8;
 Nspokes = Nf*Fibo;
 grad_shift = -1.75;
 
-%% somewhat more realistic set of values
-Nf = 5;
-Nro = 100;
-Nx = 64; % assume square image for simplicity
-Fibo = 34;
-Nspokes = Nf*Fibo; % multiple of Fibonacci number
-grad_shift = -0.75; 
+% %% somewhat more realistic set of values
+% Nf = 5;
+% Nro = 100;
+% Nx = 64; % assume square image for simplicity
+% Fibo = 34;
+% Nspokes = Nf*Fibo; % multiple of Fibonacci number
+% grad_shift = -0.75; 
 
 %%
 

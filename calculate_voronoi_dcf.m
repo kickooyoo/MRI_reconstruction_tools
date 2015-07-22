@@ -52,13 +52,20 @@ for jj = 1:Nuniq
 	A(jj) = polyarea(vor_v(vor_c{jj},1), vor_v(vor_c{jj},2));
 	tmpx = vor_v(vor_c{jj},1);
 	tmpy = vor_v(vor_c{jj},2);
-	out_of_bounds = any(dist([tmpx'; tmpy'], zeros(2, size(tmpx,1))) > ...
-		arg.max_radius + (arg.pad_ring+arg.pad_spokes)*delta_ro);
+	if arg.pad_ring
+		% jagged polygons often go over boundary
+		boundary = arg.max_radius + 10*delta_ro + arg.Nyq/10; 
+	elseif arg.pad_spokes
+		boundary = arg.max_radius + delta_ro + arg.Nyq/10;
+	else
+		boundary = arg.max_radius;
+	end
+	out_of_bounds = any(dist([tmpx'; tmpy'], zeros(2, size(tmpx,1))) > boundary);
 	if isnan(A(jj)) || out_of_bounds
 		display('invalid polygon');
 		keyboard;
 	end
-	if (mod(jj,100) == 0), display(sprintf('done with Voronoi areas for %d/%d', jj, Nuniq)); end
+	if (mod(jj,1000) == 0), display(sprintf('done with Voronoi areas for %d/%d', jj, Nuniq)); end
 end
 uniq_dcf = col(A);
 

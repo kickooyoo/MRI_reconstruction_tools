@@ -70,6 +70,7 @@ arg.figs_on = false;
 arg.nargout = nargout;
 arg = vararg_pair(arg, varargin);
 [arg.Nro, arg.Nspokes] = size(freqs);
+arg.Nyq = Nyq;
 
 % check inputs
 if nargin < 3, help(mfilename), error(mfilename), end
@@ -87,10 +88,10 @@ if isempty(arg.Nspokespf)
 	arg.Nspokespf = floor(arg.Nspokes/arg.Nf);
 end
 if arg.Nf*arg.Nspokespf ~= arg.Nspokes
-	display('not yet coded case with leftover spokes!');
-	display(sprintf('mismatch: Nspokes (%d) ~= Nspokes/frame (%d) * Nframes (%d)', ...
-		arg.Nspokes, arg.Nspokespf, arg.Nf));
-	keyboard;
+% 	display('not yet coded case with leftover spokes!');
+% 	display(sprintf('mismatch: Nspokes (%d) ~= Nspokes/frame (%d) * Nframes (%d)', ...
+% 		arg.Nspokes, arg.Nspokespf, arg.Nf));
+% 	keyboard;
 end
 assert((mod(arg.Nf,1) == 0) && (arg.Nf <= arg.Nspokes), ...
 	sprintf('invalid Nf: %d', arg.Nf));
@@ -176,6 +177,7 @@ function [ds_freqs, ds_data, Ns, ds_dcf] = format_outputs(freqs, data, frame_mem
 			display(sprintf('done with Voronoi for frame %d/%d in % sec', frame_ndx, arg.Nf, toc_Voronoi));
 		end
 		ds_data = [ds_data; curr_data];
+		display(sprintf('done with Voronoi dcf for frame %d/%d', frame_ndx, arg.Nf));
 	end
 end
 
@@ -287,6 +289,7 @@ function [ring_thetas, ring_theta_ndcs, radii] = rdatasharing_1f_set_rings(...
 		radii = [radii arg.max_radius];
 	end
 	Nrings = length(radii);
+	reached_all_frames = false;
 	for ring_ndx = 1:Nrings
 		if ring_ndx == 1
 			ring_theta_ndcs{1} = frame_theta_ndcs;
@@ -305,7 +308,8 @@ function [ring_thetas, ring_theta_ndcs, radii] = rdatasharing_1f_set_rings(...
 				ring_theta_ndcs{ring_ndx}, 0, 1, arg);
 
 			if ~lchange && ~rchange
-				display(sprintf('reached all frames on ring %d', ring_ndx));
+				display(sprintf('reached all frames on ring %d/%d', ring_ndx, Nrings));
+				reached_all_frames = true;
 				break;
 			end
 
@@ -330,9 +334,16 @@ function [ring_thetas, ring_theta_ndcs, radii] = rdatasharing_1f_set_rings(...
 				ring_thetas{ring_ndx}, Nyq);
 
 			counter = counter + 1;
-			if counter > arg.Nspokes
+			if counter > 1000; %arg.Nspokes ATTENTION WHY
 				keyboard;
 			end
+		end
+		if reached_all_frames && ring_ndx < Nrings
+			for xtra_ring_ndx = ring_ndx + 1:Nrings
+				ring_theta_ndcs{xtra_ring_ndx} = ring_theta_ndcs{xtra_ring_ndx - 1};
+				ring_thetas{xtra_ring_ndx} = ring_thetas{xtra_ring_ndx - 1};
+			end
+			break;
 		end
 	end
 end
@@ -349,13 +360,13 @@ end
 
 function [aug_ndcs, changed] = augment_ndx(ndcs, left, right, arg)
 % does auto clipping at [1 arg.Nspokes]
-	assert(length(ndcs) > 1, 'ndcs only has one value');
+% 	assert(length(ndcs) > 1, 'ndcs only has one value');
 	assert(all(mod([left right],1) == zeros(1,2)), ...
 		'invalid augment left/right values');
 
 % check that you only have consecutive indeces
 	diffs = ndcs(2:end) - ndcs(1:end-1);
-	assert(unique(diffs) == 1, 'current ndcs are nonconsecutive');
+	assert(isempty(diffs) || (unique(diffs) == 1), 'current ndcs are nonconsecutive');
 	assert(min(ndcs) >= 1, 'invalid lower ndx');
 	assert(max(ndcs) <= arg.Nspokes, 'invalid upper ndx');
 	
@@ -462,7 +473,11 @@ end
 
 % trivial case of no datasharing, just mutually exclusive assignment
 function frame_members = trivial_datashare(arg)
-	in_frame = kron(eye(arg.Nf),ones(arg.Nspokespf,1));
+	trivial_assign = round(linspace(1, arg.Nf, arg.Nspokes))'; 
+	in_frame = false(arg.Nspokes, arg.Nf);
+	for ii = 1:arg.Nspokes
+		in_frame(ii, trivial_assign(ii)) = true;
+	end
 	frame_members = repmat(permute(in_frame, [2 3 1]), [1 arg.Nro 1]);
 end
 
