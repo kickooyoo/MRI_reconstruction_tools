@@ -149,9 +149,11 @@ function [ds_freqs, ds_data, Ns, ds_dcf] = format_outputs(freqs, data, frame_mem
 		ds_freqs = [ds_freqs; curr_freqs];
 		if (arg.nargout == 5) && ~isempty(curr_freqs)
 			delta_ro = 1/size(frame_members,2); % normalized freq/Nro
+			tic
 			curr_dcf = calculate_voronoi_dcf(curr_freqs, delta_ro, arg);
+			toc_Voronoi = toc;
 			ds_dcf = [ds_dcf; curr_dcf];
-			display(sprintf('done with Voronoi dcf for frame %d/%d', frame_ndx, arg.Nf));
+			display(sprintf('done with Voronoi for frame %d/%d in % sec', frame_ndx, arg.Nf, toc_Voronoi));
 		end
 		ds_data = [ds_data; curr_data];
 	end
