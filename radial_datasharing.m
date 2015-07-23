@@ -1,5 +1,5 @@
 function [ds_data, frame_members, ds_freqs, Ns, ds_dcf] = radial_datasharing(freqs, ...
-	data, Nyq, varargin)
+	data, Nyq, Nf, varargin)
 %function [ds_data, frame_members, ds_freqs, Ns, ds_dcf] = radial_datasharing(freqs, ...
 %	data, Nyq, varargin)
 %
@@ -13,7 +13,7 @@ function [ds_data, frame_members, ds_freqs, Ns, ds_dcf] = radial_datasharing(fre
 %
 % inputs:
 % freqs: complex-valued, in radians
-%		[Nro Nspokespf Nf]
+%		[Nro Nspokes]
 %
 % data:	RO values
 %		[Nro Nspokes Nf]
@@ -24,9 +24,6 @@ function [ds_data, frame_members, ds_freqs, Ns, ds_dcf] = radial_datasharing(fre
 %		leave empty if don't want any datasharing
 %
 % varargin:
-%		Nf:	number of frames
-%		Nspokespf: number of spokes per frame
-%			need to specify one of the above
 %		'Fibonnaci' enforce center annulus has Fibonnaci number spokes, TO DO
 %		'Nyquist_spokes', TO DO
 %		'vary_rings' switches between two modes of expanding annuli
@@ -63,36 +60,18 @@ end
 
 % --------------- initializing parameters --------------
 % default values for varargin
-arg.Nf = [];
-arg.Nspokespf = [];
 arg.vary_rings = false; % as opposed to varying reach
 arg.figs_on = false;
 arg.nargout = nargout;
 arg = vararg_pair(arg, varargin);
 [arg.Nro, arg.Nspokes] = size(freqs);
 arg.Nyq = Nyq;
+arg.Nf = Nf;
 
 % check inputs
 if nargin < 3, help(mfilename), error(mfilename), end
 assert(all(size(freqs) == size(data)), 'freqs and data have mismatched size');
-assert(xor(isempty(arg.Nf), isempty(arg.Nspokespf)), ...
-	'specify only Nf OR Nspokespf via varargin');
-assert(~(isempty(arg.Nf) && isempty(arg.Nspokespf)), ...
-	'must specify either Nf or Nspokespf');
 
-% calculate respective Nf and Nspokespf
-if isempty(arg.Nf)
-	arg.Nf = floor(arg.Nspokes/arg.Nspokespf);
-end
-if isempty(arg.Nspokespf)
-	arg.Nspokespf = floor(arg.Nspokes/arg.Nf);
-end
-if arg.Nf*arg.Nspokespf ~= arg.Nspokes
-% 	display('not yet coded case with leftover spokes!');
-% 	display(sprintf('mismatch: Nspokes (%d) ~= Nspokes/frame (%d) * Nframes (%d)', ...
-% 		arg.Nspokes, arg.Nspokespf, arg.Nf));
-% 	keyboard;
-end
 assert((mod(arg.Nf,1) == 0) && (arg.Nf <= arg.Nspokes), ...
 	sprintf('invalid Nf: %d', arg.Nf));
 
@@ -172,9 +151,9 @@ function [ds_freqs, ds_data, Ns, ds_dcf] = format_outputs(freqs, data, frame_mem
 			delta_ro = 1/size(frame_members,2); % normalized freq/Nro
 			curr_dcf = calculate_voronoi_dcf(curr_freqs, delta_ro, arg);
 			ds_dcf = [ds_dcf; curr_dcf];
+			display(sprintf('done with Voronoi dcf for frame %d/%d', frame_ndx, arg.Nf));
 		end
 		ds_data = [ds_data; curr_data];
-		display(sprintf('done with Voronoi dcf for frame %d/%d', frame_ndx, arg.Nf));
 	end
 end
 

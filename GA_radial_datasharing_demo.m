@@ -27,10 +27,8 @@ k = create_GA_radial_samples(Nspokes, Nro, 'grad_shift', grad_shift, 'figs_on', 
 % radial_datasharing requires input of data, so using nonsensedata
 data = rand(size(k));
 Nyq = 1/Nx; 
-[ds_data, frame_members, ds_freqs, Ns, ds_dcf] = radial_datasharing(k, ...
-	data, Nyq, 'Nspokespf', Fibo, 'figs_on', true, 'vary_rings', true);
-% alternatively, [ds_data, frame_members, ds_freqs, Ns] = radial_datasharing(k, ...
-%	data, Nyq, 'Nf', Nf, 'figs_on', true);
+[ds_data, frame_members, ds_freqs, Ns] = radial_datasharing(k, ...
+	data, Nyq, Nf, 'figs_on', true);
 % note: blue circles indicate spokes where azimuthal distance is within
 % 1e-10 of Nyquist parameter
 % plotted spokes are simplified and do not show gradient shift effect
