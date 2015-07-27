@@ -27,7 +27,12 @@ end
 % normalize to satisfy writeVideo
 x = x./max(abs(col(x)));
 
-writerObj = VideoWriter(filename, 'MPEG-4');
+try
+	writerObj = VideoWriter(filename, 'MPEG-4');
+catch
+	display(sprintf('unable to write mp4 %s, this machine probably does not have the specified VideoWriter profile', filename)) 
+	return;
+end
 writerObj.FrameRate = arg.rate;
 open(writerObj);
 
