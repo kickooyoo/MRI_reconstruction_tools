@@ -21,7 +21,7 @@ arg.Nslice = [];
 arg.full_dims = [];
 arg = vararg_pair(arg, varargin);
 
-assert(dims_ns(data) == 4, 'incorrect data format for PF_3D_MC');
+assert(ndims_ns(data) == 4, 'incorrect data format for PF_3D_MC');
 [Nro, Nc, Nspokes, Nslice_PF] = size(data);
 
 if ~isempty(arg.params)

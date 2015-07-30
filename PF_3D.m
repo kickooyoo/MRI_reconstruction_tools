@@ -65,7 +65,7 @@ lf_xndx = (Nx - pf_Nx) + 1:pf_Nx;
 if ND > 1
 	Ny = full_dims(2);
 	lf_Ny = (Ny/2 - (Ny - pf_Ny))*2;
-	lf_yndx = (Ny - pf_Ny) + 1:pf_Ny;
+	lf_yndx = (Ny - pf_Ny) + (1:pf_Ny);
 else
 	Ny = 1;
 	lf_Ny = 1;
@@ -74,7 +74,7 @@ end
 if ND > 2
 	Nz = full_dims(3);
 	lf_Nz = (Nz/2 - (Nz - pf_Nz))*2;
-	lf_zndx = (Nz - pf_Nz) + 1:pf_Nz;
+	lf_zndx = (Nz - pf_Nz) + (1:pf_Nz);
 else
 	Nz = 1;
 	lf_Nz = 1;
