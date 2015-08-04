@@ -22,12 +22,12 @@ Nuniq = length(uniq_freqs);
 if arg.pad_ring
 	max_radius = max(abs(col(uniq_freqs)));
 	Npad = 4*sum(abs(abs(freqs) - arg.max_radius) < delta_ro*1e-4);
-	ring = (arg.max_radius + delta_ro)*exp(1*i*linspace(0,2*pi,Npad)');
+	ring = unique((arg.max_radius + delta_ro)*exp(1*i*linspace(0,2*pi,Npad)'));
 	uniq_freqs = [uniq_freqs; ring];
 elseif arg.pad_spokes
 	uniq_angles = unique(angle([uniq_freqs; -uniq_freqs]));
 	Npad = numel(uniq_angles);
-	ring = (arg.max_radius + delta_ro)*exp(1*i*uniq_angles);
+	ring = unique((arg.max_radius + delta_ro)*exp(1*i*uniq_angles));
 	uniq_freqs = [uniq_freqs; ring];
 end
 
