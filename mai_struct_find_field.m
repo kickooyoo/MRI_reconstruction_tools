@@ -70,7 +70,8 @@ for ii=1:length(fnames)
 		s1 = struct(s1); % trick
 	end
 	
-	if ~ok_val && ~isempty(s1) && isa(s1, 'numeric')
+	% if match numeric fieldval
+	if ~ok_val && ~isempty(s1) && isa(s1, 'numeric') && isa(arg.fieldval, 'numeric')
 		out_name = fname;
 		out_val = s1;	
 		within_tol = abs(double(arg.fieldval(:)) - double(s1(:)))/abs(max(col(arg.fieldval))) <= arg.fieldtol;
@@ -81,6 +82,14 @@ for ii=1:length(fnames)
 		end
 	end
 
+	% if match str fieldval
+	if ~ok_val && ~isempty(s1) && ischar(s1) && ischar(arg.fieldval)
+		out_name = fname;
+		out_val = s1;	
+		ok_val = ~isempty(strfind(lower(s1), lower(arg.fieldval)));
+	end
+	
+	% if match str fieldname
 	string_match = ~isempty(strfind(lower(fname), lower(arg.fieldname)));
 	if ~isempty(arg.name_excludes)
 		for jj = 1:length(arg.name_excludes)
