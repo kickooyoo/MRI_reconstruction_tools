@@ -73,7 +73,7 @@ for ii=1:length(fnames)
 	if ~ok_val && ~isempty(s1) && isa(s1, 'numeric')
 		out_name = fname;
 		out_val = s1;	
-		within_tol = abs(arg.fieldval(:) - s1(:))/max(col(arg.fieldval)) <= arg.fieldtol;
+		within_tol = abs(double(arg.fieldval(:)) - double(s1(:)))/abs(max(col(arg.fieldval))) <= arg.fieldtol;
 		if arg.all_vector
 			ok_val = all(within_tol);
 		else

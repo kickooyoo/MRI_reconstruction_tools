@@ -7,6 +7,7 @@ function dcf = calculate_voronoi_dcf(freqs, delta_ro, arg)
 % pad ring makes an evenly spaced ring but can create weird edge polygons
 arg.pad_ring = false;
 arg.pad_spokes = true;
+arg.check_polygon = false;
 
 % pare down all frequencies into set of unique points
 % cannot use Matlab's unique because need to reexpand at end
@@ -61,7 +62,7 @@ for jj = 1:Nuniq
 		boundary = arg.max_radius;
 	end
 	out_of_bounds = any(dist([tmpx'; tmpy'], zeros(2, size(tmpx,1))) > boundary);
-	if isnan(A(jj)) || out_of_bounds
+	if (isnan(A(jj)) || out_of_bounds) && arg.check_polygon
 		display('invalid polygon');
 		keyboard;
 	end
