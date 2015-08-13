@@ -28,18 +28,37 @@ for ii = 2:n-1
 end
 new_arg(n) = (arg(n)-new_arg(n-1)*sub(n-1))/(diags(n)-new_sup(n-1)*sub(n-1));
 
-output = zeros(n,1);
-output(n) = new_arg(n);
+% % really slow? why? maybe memory access slower in this direction?
+% output = zeros(n,1);
+% output(n) = new_arg(n);
+% 
+% if varg.print
+% 	rtimer = tic;
+% end
+% 
+% for ii = n-1%:-1:1
+% 	output(ii) = new_arg(ii)-new_sup(ii)*output(ii+1);
+% 	if varg.print && mod(ii, floor(n/1000)) == 0
+% 		display(sprintf('done with reverse pass index %d/%d after %d sec', n-ii, n, toc(rtimer)));
+% 	end
+% toc
+% end
 
+% do it backwards for speed
 if varg.print
 	rtimer = tic;
 end
 
-for ii = n-1:-1:1
-	output(ii) = new_arg(ii)-new_sup(ii)*output(ii+1);
-	if varg.print && mod(ii, floor(n/1000)) == 0
-		display(sprintf('done with reverse pass index %d/%d after %d sec', n-ii, n, toc(rtimer)));
+routput = zeros(n,1);
+routput(1) = new_arg(n);
+% change of variables
+% rii = n + 1 - ii
+% ii = n + 1 - rii
+for rii = 2:n
+	routput(rii) = new_arg(n + 1 - rii) - new_sup(n + 1 - rii)*routput(rii-1);
+	if varg.print && mod(rii, floor(n/20)) == 0
+		display(sprintf('done with reverse pass index %d/%d after %d sec', n-rii, n, toc(rtimer)));
 	end
-% 	display(sprintf('%d', ii));
 end
+output = flipdim(routput, 1);
 
