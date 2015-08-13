@@ -13,6 +13,9 @@
 %| Copyright 2005-6-20, Jeff Fessler and Amanda Funai, University of Michigan
 %| 2014-08-19 JF more testing, verifying phase is correct
 %| modified for 3D by Mai 2014-09-09
+% 
+% NOW DEFUNCT, use ir_mri_sensemap_sim in irt
+
 
 if nargin == 1 % tests
 	if streq(varargin{1}, 'test')
