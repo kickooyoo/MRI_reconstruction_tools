@@ -42,9 +42,9 @@ else
 end
 	
 % enforce Nspokes even
-clip_spoke = (mod(arg.full_dims(3), 2) == 1);
-arg.full_dims(3) = floor(arg.full_dims(3)/2)*2;
-data = data(:, :, 1:arg.full_dims(3), :);
+clip_spoke = (mod(arg.full_dims(2), 2) == 1);
+arg.full_dims(2) = floor(arg.full_dims(2)/2)*2;
+data = data(:, :, 1:arg.full_dims(2), :);
 
 full_data = zeros(Nro, Nc, Nspokes, arg.full_dims(3));
 for coil_ndx = 1:Nc

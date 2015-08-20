@@ -45,7 +45,7 @@ if arg.figs_on
 		keyboard;
 	end
 end
-[vor_v, vor_c] = voronoin([real(uniq_freqs) imag(uniq_freqs)]);
+[vor_v, vor_c] = voronoin([double(real(uniq_freqs)) double(imag(uniq_freqs))]);
 
 % for each centroid, calculate area from vertices of polygon
 % only go up to Nuniq, remainder points are for padding ring

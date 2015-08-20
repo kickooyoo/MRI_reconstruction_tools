@@ -16,9 +16,9 @@ function [sense_maps, convex mask] = est_S_reg(coil_images, varargin)
 % 2D only :(
 Nc = size(coil_images, 3);
 arg.figs_on = 1;
-arg.thresh = 0.15;
+arg.thresh = 0.45;
 arg.l2b = 2;
-arg.dilate = 10;
+arg.dilate = 5;
 arg.covmat = [];
 arg.display_thresh = 1e-4;
 arg = vararg_pair(arg, varargin);
@@ -49,7 +49,7 @@ if sum(bodycoil_mask) == 0
 end
 bodycoil_sim = bodycoil_sim.*bodycoil_mask;
 figure; im(bodycoil_sim)
-display('check masks');
+display('check masks, bodycoil_sim = redo_bodycoil_mask(SoS, arg)?');
 keyboard;
 [sense_maps, sinit] = mri_sensemap_denoise(coil_images, 'bodycoil', bodycoil_sim, ...
 	'chol', 1, 'niter', 1, 'l2b', arg.l2b);
@@ -61,18 +61,16 @@ if arg.figs_on
 	figure; im(sense_maps.*repmat(convex_mask, [1 1 Nc]));
 end
 
-return;
-smap_norm = sos_combine(permute(sense_maps, [1 2 4 3]), arg.covmat, []);
-figure; im(smap_norm); title('smap_norm');
-SoS = sos_combine(permute(coil_images, [1 2 4 3]), arg.covmat, smap_norm);
-bodycoil_sim = SoS;%.*exp(1i*angle(coil_images(:,:,9)));
-% phase of coils was noisy, don't bother adding it
-bodycoil_sim = bodycoil_sim.*(SoS > arg.thresh*max(col(SoS)));
-figure; im(bodycoil_sim)
-[sense_maps, sinit] = mri_sensemap_denoise(coil_images, 'bodycoil', bodycoil_sim, ...
-	'chol', 1, 'niter', 1, 'l2b', arg.l2b);
-if arg.figs_on
-	figure; im(sense_maps.*repmat(convex_mask, [1 1 Nc]));
 end
 
+function bodycoil_sim = redo_bodycoil_mask(SoS, arg)
 
+bodycoil_sim = SoS;%.*exp(1i*angle(coil_images(:,:,9)));
+bodycoil_mask = adaptivethreshold(SoS, 150, arg.thresh) & (SoS > arg.thresh/2*max(col(SoS)));
+bodycoil_mask = imerode(bodycoil_mask, strel('disk', round(0.3*arg.dilate))); % get rid of extraneous pixels outside body
+bodycoil_mask = bwconvhull(bodycoil_mask);
+bodycoil_mask = imerode(bodycoil_mask, strel('disk', round(1.5*arg.dilate))); % further erode
+bodycoil_sim = bodycoil_sim.*bodycoil_mask;
+figure; im(bodycoil_sim)
+
+end

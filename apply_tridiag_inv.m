@@ -22,7 +22,7 @@ varg = vararg_pair(varg, varargin);
 
 n = length(diags);
 m = size(rhs,2);
-assert((length(sub) == n-1) & (length(sup) == n-1) & (length(rhs) == n), ...
+assert((length(sub) == n-1) & (length(sup) == n-1) & (size(rhs,1) == n), ...
 	'vector lengths incompatible');
 
 new_sup = zeros(n,1);
@@ -45,7 +45,6 @@ for ii = 2:n-1
 		/ (diags(ii) - new_sup(ii-1) * sub(ii-1));
 
 	end
-	if norm(new_arg(ii,:) - new_arg_2(ii,:)) ~= 0, keyboard, end
 end
 new_arg(n,:) = (rhs(n,:) - new_arg(n-1,:) * sub(n-1)) ...
 	/ (diags(n) - new_sup(n-1) * sub(n-1));
@@ -65,7 +64,6 @@ for ii = n-1:-1:1
 	for jj = 1:m
 		output_2(ii,jj) = new_arg(ii,jj) - new_sup(ii) * output_2(ii+1, jj);
 	end
-	if norm(output(ii,:) - output_2(ii,:)) ~= 0, keyboard, end
 end
 
 end
