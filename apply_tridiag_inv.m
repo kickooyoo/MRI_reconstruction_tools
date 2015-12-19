@@ -21,9 +21,15 @@ varg.print = false;
 varg = vararg_pair(varg, varargin);
 
 n = length(diags);
-m = size(rhs,2);
-assert((length(sub) == n-1) & (length(sup) == n-1) & (length(rhs) == n), ...
+assert((length(sub) == n-1) & (length(sup) == n-1) & (size(rhs,1) == n), ...
 	'vector lengths incompatible');
+
+% make all inputs col
+sub = col(sub);
+diags = col(diags);
+sup = col(sup);
+
+m = size(rhs,2);
 
 new_sup = zeros(n,1);
 new_arg = zeros(n,m);
