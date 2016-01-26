@@ -16,11 +16,12 @@ function [sense_maps, convex mask] = est_S_reg(coil_images, varargin)
 % 2D only :(
 Nc = size(coil_images, 3);
 arg.figs_on = 1;
-arg.thresh = 0.45;
+arg.thresh = 0.2;% 0.45; %0.2 good for pat2
 arg.l2b = 2;
-arg.dilate = 5;
+arg.dilate = 3;% 5;% 3 good for pat2
 arg.covmat = [];
 arg.display_thresh = 1e-4;
+arg.check_bodycoil_mask = false; % for quick pat2
 arg = vararg_pair(arg, varargin);
 
 %smap_norm?? 
@@ -48,9 +49,11 @@ if sum(bodycoil_mask) == 0
 	keyboard;
 end
 bodycoil_sim = bodycoil_sim.*bodycoil_mask;
-figure; im(bodycoil_sim)
-display('check masks, bodycoil_sim = redo_bodycoil_mask(SoS, arg)?');
-keyboard;
+if arg.check_bodycoil_mask
+	figure; im(bodycoil_sim)
+	display('check masks, bodycoil_sim = redo_bodycoil_mask(SoS, arg)?');
+	keyboard;
+end
 [sense_maps, sinit] = mri_sensemap_denoise(coil_images, 'bodycoil', bodycoil_sim, ...
 	'chol', 1, 'niter', 1, 'l2b', arg.l2b);
 if arg.figs_on

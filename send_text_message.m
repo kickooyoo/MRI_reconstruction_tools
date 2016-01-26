@@ -23,7 +23,7 @@ function send_text_message(number,carrier,subject,message)
 % =========================================================================
 % YOU NEED TO TYPE IN YOUR OWN EMAIL AND PASSWORDS:
 mail = '051364@gmail.com';    %Your GMail email address
-password = 'M3a1t4L1a5b9';          %Your GMail password
+password = 'M3a1t4L1a5b8';          %Your GMail password
 % =========================================================================
 
 if nargin == 3
@@ -70,6 +70,14 @@ props = java.lang.System.getProperties;
 props.setProperty('mail.smtp.auth','true');
 props.setProperty('mail.smtp.socketFactory.class', 'javax.net.ssl.SSLSocketFactory');
 props.setProperty('mail.smtp.socketFactory.port','465');
+
+%% stuff Mai added for debugging
+props.setProperty( 'mail.smtp.user', mail );
+props.setProperty( 'mail.smtp.host', 'smtp.gmail.com' );
+props.setProperty( 'mail.smtp.port', '465' );
+props.setProperty( 'mail.smtp.starttls.enable', 'true' );
+props.setProperty( 'mail.smtp.debug', 'true' );
+props.setProperty( 'mail.smtp.socketFactory.fallback', 'false' );
 
 %% Send the email
 sendmail(emailto,subject,message)
