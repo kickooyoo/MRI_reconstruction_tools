@@ -1,7 +1,15 @@
-function NRMSE = calc_NRMSE_over_mask(x,true,mask)
-% function NRMSE = calc_NRMSE_over_mask(x,true,mask)
-diffs = (abs(x)-abs(true)).^2;
+function NRMSE = calc_NRMSE_over_mask(x, xtrue, mask)
+% function NRMSE = calc_NRMSE_over_mask(x, xtrue, mask)
+% 
+% calculates normalized root mean squared error between x and xtrue over mask
 
-MSE = mean(diffs(mask(:)));
+if numel(x) ~= numel(xtrue) || numel(x) ~= numel(mask)
+	display('Error in calc_NRMSE_over_mask: sizes of inputs inconsistent.');
+	keyboard;
+end
 
-NRMSE = sqrt(MSE)/max(abs(true(:)));
+diffs = (abs(x(:))-abs(xtrue(:))).^2;
+
+MSE = mean(diffs(logical(mask(:))));
+
+NRMSE = sqrt(MSE)/max(abs(xtrue(:)));
