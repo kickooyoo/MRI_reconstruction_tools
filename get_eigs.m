@@ -1,9 +1,9 @@
-function [eigs,Q] = get_eigs(A,numblocks)
-% function [eigs,Q] = get_eigs(A,numblocks)
+function [eigvs,Q] = get_eigs(A, numblocks)
+% function [eigs,Q] = get_eigs(A, numblocks)
 % gets eigenvalues of BCCB matrix
 % assume if it has multiple blocks, they are all identical
 
-if isfield(A.arg, 'blocks')
+if isfield(A.arg, 'blocks') % legacy code
         % assume it was constructed using block_fatrix (or construct_fourierfat.m)
         
         if (numblocks > 1)
@@ -32,7 +32,7 @@ if isfield(A.arg, 'blocks')
                 Qtest = Gdft('mask',true(nx,1));
                 keyboard;
         end
-        eigs = repmat(Q*BB(:,1),numblocks,1); %*sqrt(size(B,1)); ,
+        eigvs = repmat(Q*BB(:,1),numblocks,1); %*sqrt(size(B,1)); ,
         
         %test code
         if (numblocks > 1)
@@ -50,13 +50,13 @@ if isfield(A.arg, 'blocks')
 else % assume constructed with GsplineF
 
         AA = A'*A;
-        Q = Gdft('mask',true(A.arg.Nx,A.arg.Ny));
-        Qcells = repmat({Q},A.arg.Nc,1);
-        Qbig = block_fatrix(Qcells);
-        eigs = Qbig*AA(:,1);
-        eigblock = eigs(1:A.arg.Nx*A.arg.Ny);
-        eigs = repmat(eigblock, A.arg.Nc, 1);
-        Q = Qbig;
-        
-        % can I just take a shortcut and say it's Nx*Ny*ones(Nx*Ny*Nx,1)?
+        %Q = Gdft('mask',true(A.arg.Nx,A.arg.Ny));
+        %Qcells = repmat({Q},A.arg.Nc,1);
+        %Qbig = block_fatrix(Qcells);
+	Q = GsplineF(A.arg.Nx, A.arg.Ny, 1, A.arg.Nc); % no real difference between block_fatrix method and GsplineF
+	% Q = F_par(A.arg.Nx, A.arg.Ny, A.arg.Nc); way slower :'(
+
+	e0 = zeros(A.arg.Nx, A.arg.Ny, A.arg.Nc);
+	e0(1,1,:) = 1;
+        eigvs = Q * (AA * e0(:));
 end
