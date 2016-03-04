@@ -22,38 +22,43 @@ arg.dilate = 3;% 5;% 3 good for pat2
 arg.covmat = [];
 arg.display_thresh = 1e-4;
 arg.check_bodycoil_mask = false; % for quick pat2
+arg.bodycoil = [];
 arg = vararg_pair(arg, varargin);
 
-%smap_norm?? 
-SoS = sos_combine(permute(coil_images, [1 2 4 3]), arg.covmat, []);
-bodycoil_sim = SoS;%.*exp(1i*angle(coil_images(:,:,9)));
-if 0
-	sOs = fftshift(fft2(SoS));
-	[nx ny] = size(SoS);
-	figure; im(sOs);
-	sOs_filt = sOs;
-	window_width = 1;
-	sOs_filt(nx/2-window_width:nx/2+window_width,ny/2-window_width:ny/2+window_width) = 0;
-	SoS_filt = ifft2(ifftshift(sOs_filt));
-	figure; im(SoS_filt);
+if isempty(arg.bodycoil)
+	SoS = sos_combine(permute(coil_images, [1 2 4 3]), arg.covmat, []);
+	bodycoil_sim = SoS;%.*exp(1i*angle(coil_images(:,:,9)));
+	if 0
+		sOs = fftshift(fft2(SoS));
+		[nx ny] = size(SoS);
+		figure; im(sOs);
+		sOs_filt = sOs;
+		window_width = 1;
+		sOs_filt(nx/2-window_width:nx/2+window_width,ny/2-window_width:ny/2+window_width) = 0;
+		SoS_filt = ifft2(ifftshift(sOs_filt));
+		figure; im(SoS_filt);
+	end
+
+	% phase of coils was noisy, don't bother adding it
+
+	bodycoil_mask = adaptivethreshold(SoS, 150, arg.thresh) & (SoS > arg.thresh/2*max(col(SoS)));
+	bodycoil_mask = imerode(bodycoil_mask, strel('disk', round(0.3*arg.dilate))); % get rid of extraneous pixels outside body
+	bodycoil_mask = bwconvhull(bodycoil_mask);
+	bodycoil_mask = imerode(bodycoil_mask, strel('disk', round(1.5*arg.dilate))); % further erode
+	if sum(bodycoil_mask) == 0
+		display('empty body coil mask!');
+		keyboard;
+	end
+	bodycoil_sim = bodycoil_sim.*bodycoil_mask;
+	if arg.check_bodycoil_mask
+		figure; im(bodycoil_sim)
+		display('check masks, bodycoil_sim = redo_bodycoil_mask(SoS, arg)?');
+		keyboard;
+	end
+else
+	bodycoil_sim = arg.bodycoil;
 end
 
-% phase of coils was noisy, don't bother adding it
-
-bodycoil_mask = adaptivethreshold(SoS, 150, arg.thresh) & (SoS > arg.thresh/2*max(col(SoS)));
-bodycoil_mask = imerode(bodycoil_mask, strel('disk', round(0.3*arg.dilate))); % get rid of extraneous pixels outside body
-bodycoil_mask = bwconvhull(bodycoil_mask);
-bodycoil_mask = imerode(bodycoil_mask, strel('disk', round(1.5*arg.dilate))); % further erode
-if sum(bodycoil_mask) == 0
-	display('empty body coil mask!');
-	keyboard;
-end
-bodycoil_sim = bodycoil_sim.*bodycoil_mask;
-if arg.check_bodycoil_mask
-	figure; im(bodycoil_sim)
-	display('check masks, bodycoil_sim = redo_bodycoil_mask(SoS, arg)?');
-	keyboard;
-end
 [sense_maps, sinit] = mri_sensemap_denoise(coil_images, 'bodycoil', bodycoil_sim, ...
 	'chol', 1, 'niter', 1, 'l2b', arg.l2b);
 if arg.figs_on
