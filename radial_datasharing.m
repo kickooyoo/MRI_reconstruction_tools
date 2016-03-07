@@ -50,12 +50,14 @@ function [ds_data, frame_members, ds_freqs, Ns, ds_dcf] = radial_datasharing(fre
 % Mai Le, University of Michigan, 01/26/15
 % cleaned up 06/30/15
 
-if nargin == 1 && streq(freqs, 'test')
-	radial_datasharing_test();
+% if nargin == 1 && streq(freqs, 'test')
+if streq(freqs, 'test')
+    varargin = [{data, Nyq, Nf} varargin];
+	radial_datasharing_test(varargin(2:end));
 	return
-elseif nargin == 3 & streq(freqs, 'test')
-	radial_datasharing_test(data);
-	return
+% elseif nargin == 3 & streq(freqs, 'test') % what is this option?
+% 	radial_datasharing_test(varargin);
+% 	return
 end
 
 % --------------- initializing parameters --------------
@@ -490,6 +492,17 @@ function radial_datasharing_test(varargin)
 		Nf = 10;
 		trunc = 100; % number of spokes, must be <= 1000
 		params.Nspokes = trunc;
+        params.Nro = 512;
+        
+        % build k-space
+        grad_shift = 0;
+        GA = pi*(sqrt(5)-1)/2; % radians
+        phi = [pi/2:GA:GA*params.Nspokes];
+        assert(mod(params.Nro,2) == 0, 'Number along read out not even!')
+        delta_ro = 1/params.Nro;
+        rho = col([-(params.Nro/2 - 1):1:params.Nro/2])*delta_ro;
+        rho = rho + grad_shift*delta_ro;
+        k = double(rho*exp(-1i*phi));
 		
 		% do one coil at a time, only do full calc for 1st
 		coil_ndx = 1;

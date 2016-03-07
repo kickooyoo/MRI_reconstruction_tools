@@ -4,14 +4,16 @@ function mp4_writer(x, filename, varargin)
 %			magnify, 100 = regular
 %			texts
 % wrapper for Matlab's VideoWriter
-arg.NI = 5;
+arg.NI = 2; % number of images side by side
 arg.rate = 1; % fps
 arg.rgb = 0;
 arg.magnify = 'fit'; % or can be positive number, 100 = regular size
 arg.texts = {};
 arg.text_x = 10*ones(1,arg.NI);
-arg.text_y = 10 + min(size(x,1), size(x,2))*(0:arg.NI-1);
+arg.text_y = 10 + size(x,2)/arg.NI*(0:arg.NI-1);%min(size(x,1), size(x,2))*(0:arg.NI-1);
 arg.profile = 'MPEG-4';
+arg.aspect = ones(1,3);
+arg.debug = false;
 if size(x, 1) < size(x, 2)
 	tmp = arg.text_y;
 	arg.text_y = arg.text_x;
@@ -57,6 +59,7 @@ if arg.rgb
 else
 	Nf = size(x,3);
 end
+fhandle = figure;
 for ii = 1:Nf
 	if arg.rgb 
 		pic = x(:,:,:,ii);
@@ -64,13 +67,18 @@ for ii = 1:Nf
 		pic = x(:,:,ii);
 	end
 	imshow(squeeze(pic), 'InitialMagnification', arg.magnify);
+	daspect(arg.aspect);
 	if ~isempty(arg.texts)
 		for jj = 1:length(arg.texts)
 			text(arg.text_x(jj), arg.text_y(jj), arg.texts{jj}, ...
 				'color', [1 1 1]);
 		end
-	end
-	frame = getframe;
+    end
+	frame = getframe(fhandle);
+    if arg.debug
+        cmap = colormap;
+       frame = im2frame(squeeze(pic)*255+1, cmap); 
+    end
 	writeVideo(writerObj, frame);
 end
 close(writerObj);

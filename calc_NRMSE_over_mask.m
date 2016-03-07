@@ -10,7 +10,6 @@ end
 
 %diffs = (abs(x(:))-abs(xtrue(:))).^2;
 %diffs = abs(x(:)-xtrue(:)).^2;
-
 %MSE = mean(diffs(logical(mask(:))));
 MSE = norm(abs(x(:) - xtrue(:)), 2)^2;
 NRMSE = sqrt(MSE)/norm(xtrue(:), 2);
