@@ -1,5 +1,5 @@
-function [sense_maps, convex mask] = est_S_reg(coil_images, varargin)
-%function [sense_maps, convex mask] = est_S_reg(coil_images, varargin)
+function [sense_maps, bodycoil_mask] = est_S_reg(coil_images, varargin)
+%function [sense_maps, bodycoil_mask] = est_S_reg(coil_images, varargin)
 % estimate sense maps from coil images
 % basically wrapper for Michael's method
 %
@@ -15,7 +15,7 @@ function [sense_maps, convex mask] = est_S_reg(coil_images, varargin)
 % parameters tuned for Siemes data 12/19
 % 2D only :(
 Nc = size(coil_images, 3);
-arg.figs_on = 1;
+arg.figs_on = 0;
 arg.thresh = 0.2;% 0.45; %0.2 good for pat2
 arg.l2b = 2;
 arg.dilate = 3;% 5;% 3 good for pat2
@@ -23,6 +23,7 @@ arg.covmat = [];
 arg.display_thresh = 1e-4;
 arg.check_bodycoil_mask = false; % for quick pat2
 arg.bodycoil = [];
+arg.bodycoil_mask = [];
 arg = vararg_pair(arg, varargin);
 
 if isempty(arg.bodycoil)
@@ -43,15 +44,17 @@ else
          bodycoil_sim = SoS;
 end
 	% phase of coils was noisy, don't bother adding it
-        
-bodycoil_mask = adaptivethreshold(abs(SoS), 150, arg.thresh) & (abs(SoS) > arg.thresh/2*max(col(abs(SoS))));
-bodycoil_mask = imerode(bodycoil_mask, strel('disk', round(0.3*arg.dilate))); % get rid of extraneous pixels outside body
-bodycoil_mask = bwconvhull(bodycoil_mask);
-bodycoil_mask = imerode(bodycoil_mask, strel('disk', round(1.5*arg.dilate))); % further erode
-if sum(bodycoil_mask) == 0
-        display('empty body coil mask!');
-        keyboard;
+if isempty(arg.bodycoil_mask)
+	arg.bodycoil_mask = adaptivethreshold(abs(SoS), 150, arg.thresh) & (abs(SoS) > arg.thresh/2*max(col(abs(SoS))));
+	arg.bodycoil_mask = imerode(arg.bodycoil_mask, strel('disk', round(0.3*arg.dilate))); % get rid of extraneous pixels outside body
+	arg.bodycoil_mask = bwconvhull(arg.bodycoil_mask);
+	arg.bodycoil_mask = imerode(arg.bodycoil_mask, strel('disk', round(1.5*arg.dilate))); % further erode
+	if sum(arg.bodycoil_mask) == 0
+		display('empty body coil mask!');
+		keyboard;
+	end
 end
+bodycoil_mask = arg.bodycoil_mask;
 bodycoil_sim = bodycoil_sim.*bodycoil_mask;
 if arg.check_bodycoil_mask
         figure; im(bodycoil_sim)
@@ -80,6 +83,6 @@ bodycoil_mask = imerode(bodycoil_mask, strel('disk', round(0.3*arg.dilate))); % 
 bodycoil_mask = bwconvhull(bodycoil_mask);
 bodycoil_mask = imerode(bodycoil_mask, strel('disk', round(1.5*arg.dilate))); % further erode
 bodycoil_sim = bodycoil_sim.*bodycoil_mask;
-figure; im(bodycoil_sim)
+%figure; im(bodycoil_sim)
 
 end
