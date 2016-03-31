@@ -4,7 +4,7 @@ function coutput = arg_struct_to_cell(arg)
 fields = fieldnames(arg);
 coutput = {};
 for ii = 1:length(fields)
-	coutput = [coutput; fields{ii}];
-	coutput = [coutput; getfield(arg, fields{ii})];
+	coutput{(ii - 1)*2 + 1} = fields{ii};
+	coutput{2*ii} = getfield(arg, fields{ii});
 end
 

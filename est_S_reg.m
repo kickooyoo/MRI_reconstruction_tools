@@ -62,7 +62,10 @@ if arg.check_bodycoil_mask
         keyboard;
 end
 
-
+if ~all(size(bodycoil_sim) == size(coil_images(:,:,1)))
+	display('sizes of bodycoil_sim and coil_images do not match');
+	keyboard;
+end
 [sense_maps, sinit] = mri_sensemap_denoise(coil_images, 'bodycoil', bodycoil_sim, ...
 	'chol', 1, 'niter', 1, 'l2b', arg.l2b);
 if arg.figs_on
