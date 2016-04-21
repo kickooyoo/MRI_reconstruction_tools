@@ -1,7 +1,10 @@
-function [eigvs,Q] = get_eigs(A, numblocks)
+function [eigvs,Q] = get_eigs(A, numblocks, varargin)
 % function [eigs,Q] = get_eigs(A, numblocks)
 % gets eigenvalues of BCCB matrix
 % assume if it has multiple blocks, they are all identical
+arg.Nx = 0;
+arg.Ny = 0;
+arg = vararg_pair(arg, varargin);
 
 if isfield(A.arg, 'blocks') % legacy code
         % assume it was constructed using block_fatrix (or construct_fourierfat.m)
@@ -53,10 +56,16 @@ else % assume constructed with GsplineF
         %Q = Gdft('mask',true(A.arg.Nx,A.arg.Ny));
         %Qcells = repmat({Q},A.arg.Nc,1);
         %Qbig = block_fatrix(Qcells);
-	Q = GsplineF(A.arg.Nx, A.arg.Ny, 1, A.arg.Nc); % no real difference between block_fatrix method and GsplineF
-	% Q = F_par(A.arg.Nx, A.arg.Ny, A.arg.Nc); way slower :'(
+        if isfield(A.arg, 'Nx') && isfield(A.arg.Ny)
+                Q = GsplineF(A.arg.Nx, A.arg.Ny, 1, A.arg.Nc); % no real difference between block_fatrix method and GsplineF
+                e0 = zeros(A.arg.Nx, A.arg.Ny, A.arg.Nc);
+        else
+                Q = GsplineF(arg.Nx, arg.Ny, 1,numblocks);
+                e0 = zeros(arg.Nx, arg.Ny, numblocks);
+        end
+        % Q = F_par(A.arg.Nx, A.arg.Ny, A.arg.Nc); way slower :'(
 
-	e0 = zeros(A.arg.Nx, A.arg.Ny, A.arg.Nc);
+	
 	e0(1,1,:) = 1;
         eigvs = Q * (AA * e0(:));
 end

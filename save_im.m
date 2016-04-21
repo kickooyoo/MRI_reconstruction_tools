@@ -1,5 +1,9 @@
 function save_im(path, name, varargin)
 % function save_im(path, name, varargin)
+%
+% varargin:
+%       FontSize
+
 arg.FontSize = [];
 arg = vararg_pair(arg, varargin);
 
