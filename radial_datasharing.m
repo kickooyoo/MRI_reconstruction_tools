@@ -519,7 +519,7 @@ function radial_datasharing_test(varargin)
 		figure; im(permute(frame_members, [2 3 1]));
 		% to do: find way to assign data to a frame members of another coil
 
-		F = GsplineF_NC(ds_freqs, ds_Ns, params.Nro, params.Nspokes, Nf, params.Nx, params.Ny, params.Nc);%!!!!
+		F = F_NC_3DT(ds_freqs, ds_Ns, params.Nro, params.Nspokes, Nf, params.Nx, params.Ny, params.Nc);%!!!!
 		sos = sos_combine(F'*(repmat(ds_dcf, 1, params.Nc).*ds_data),[],[]);
 		figure; im(sos); 
 		title('with datasharing and Voronoi dcf');

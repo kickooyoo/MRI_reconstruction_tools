@@ -1,5 +1,6 @@
 function true_image = make_sim_image(nx,ny)
-
+%function true_image = make_sim_image(nx,ny)
+%
 % creates simulated static image with planar varying phase
 % from brainweb, used in dynamic/static_SENSE_splitting project
 % crops to nx x ny

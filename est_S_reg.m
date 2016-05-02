@@ -41,7 +41,7 @@ if isempty(arg.bodycoil)
 	end
 else
         SoS = arg.bodycoil;
-         bodycoil_sim = SoS;
+        bodycoil_sim = SoS;
 end
 	% phase of coils was noisy, don't bother adding it
 if isempty(arg.bodycoil_mask)
