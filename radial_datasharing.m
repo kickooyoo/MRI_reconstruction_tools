@@ -344,7 +344,7 @@ function [aug_ndcs, changed] = augment_ndx(ndcs, left, right, arg)
 	assert(all(mod([left right],1) == zeros(1,2)), ...
 		'invalid augment left/right values');
 
-% check that you only have consecutive indeces
+% check that you only have consecutive indices
 	diffs = ndcs(2:end) - ndcs(1:end-1);
 	assert(isempty(diffs) || (unique(diffs) == 1), 'current ndcs are nonconsecutive');
 	assert(min(ndcs) >= 1, 'invalid lower ndx');

@@ -83,7 +83,7 @@ end
 
 
 
-% assign indeces for partial Fourier
+% assign indices for partial Fourier
 pf_xndx = (1:pf_Nx) + arg.PF_location(1)*(Nx-pf_Nx);
 pf_yndx = (1:pf_Ny) + arg.PF_location(2)*(Ny-pf_Ny);
 pf_zndx = (1:pf_Nz) + arg.PF_location(3)*(Nz-pf_Nz);

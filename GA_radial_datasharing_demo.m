@@ -40,7 +40,7 @@ Nyq = 1/Nx;
 colors = 'rgbkc';
 figure; hold on;
 for ii = 1:Nf
-	% sum(col(frame_members)) == numel(ds_freqs), use indeces of
+	% sum(col(frame_members)) == numel(ds_freqs), use indices of
 	% frame_members to extract relevant values for each frame
 	frame_mask = false(Nf, Nro, Nspokes);
 	frame_mask(ii, :, :) = true(Nro, Nspokes);
