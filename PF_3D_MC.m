@@ -21,7 +21,7 @@ arg.Nslice = [];
 arg.full_dims = [];
 arg = vararg_pair(arg, varargin);
 
-assert(ndims_ns(data) == 4, 'incorrect data format for PF_3D_MC');
+assert(ndims(data) == 4, 'incorrect data format for PF_3D_MC');
 [Nro, Nc, Nspokes, Nslice_PF] = size(data);
 
 if ~isempty(arg.params)
@@ -33,7 +33,7 @@ if ~isempty(arg.params)
 elseif ~isempty(arg.Nslice)
 	arg.full_dims = [Nro Nspokes arg.Nslice];
 elseif (ndims_ns(arg.full_dims) == 1) && all(sort(size(arg.full_dims)) == [1 3])
-	assert(all(full_dims(1:2) == [Nro Nspokes]), ...
+	assert(all(arg.full_dims(1:2) == [Nro Nspokes]), ...
 		'Nro and Nspokes in full_dims do not match size of data');
 else
 	display('Invalid set of varargin for PF_3D_MC, choose either:');
