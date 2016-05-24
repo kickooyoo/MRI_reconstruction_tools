@@ -16,9 +16,12 @@ arg.mask = true(arg.Nx, arg.Ny, arg.Nz);
 arg.threeD = true;
 arg = vararg_pair(arg, varargin);
 freqs = col(freqs);
+if arg.Nz == 1
+	arg.threeD = false;
+end
 
 if arg.threeD
-	assert(mod(Nz, 2) == 0, '3D option in GnufftSoS only available for even Nslices (Nz)');
+	assert((Nz == 1) || (mod(Nz, 2) == 0), '3D option in GnufftSoS only available for even Nslices (Nz)');
 	Nfreq = numel(freqs);
 	kz = col(double(repmat(permute(col(-Nz/2:Nz/2-1)/Nz, [2 1]), [Nfreq 1])));
 	k3D = repmat(freqs, [1 Nz]);%exp(1i*kz).*repmat(freqs, [1 Nz]);
@@ -33,11 +36,17 @@ else
 	simple_dims = [Nx, Ny];
 	Jd = [6 6];
 end
-arg.A = Gnufft(true(simple_dims), {om; simple_dims; Jd; ceil(simple_dims*1.5); simple_dims/2; 'table'; 2^10; 'minmax:kb'});
+arg.A = Gnufft(true(simple_dims), {om; simple_dims; Jd; ceil(simple_dims*1.5); max(floor(simple_dims/2),1); 'table'; 2^10; 'minmax:kb'});
 
-F = fatrix2('idim', [arg.Nx arg.Ny arg.Nz] ,'arg',arg,'odim', ...
-        [arg.Ns*arg.Nz 1], 'forw', @GnufftSoS_forw, ...
-        'back', @GnufftSoS_back, 'imask', arg.mask);
+if arg.threeD
+	F = fatrix2('idim', [arg.Nx arg.Ny arg.Nz] ,'arg',arg,'odim', ...
+		[arg.Ns*arg.Nz 1], 'forw', @GnufftSoS_forw, ...
+		'back', @GnufftSoS_back, 'imask', arg.mask);
+else
+	F = fatrix2('idim', [arg.Nx arg.Ny] ,'arg',arg,'odim', ...
+		[arg.Ns 1], 'forw', @GnufftSoS_forw, ...
+		'back', @GnufftSoS_back, 'imask', arg.mask);
+end
 
 end
 
