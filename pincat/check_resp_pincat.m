@@ -1,9 +1,9 @@
 pincat_dir = '.';
-
+Nframes = 30;
 resp_vals = [0.1 0.3 0.5 0.7];
 for resp_ndx = 1:length(resp_vals)
-	for frame = 1:Nframes
-		p(:,:,:,:,resp_ndx) = load_pincat(pincat_dir, 'prefix', sprintf('pincat_resp%.1f_out_frame%d', resp_vals(resp_ndx), frame));
+	for frame = 0:Nframes - 1
+		p(:,:,:,frame + 1,resp_ndx) = load_pincat(pincat_dir, 'prefix', sprintf('pincat_resp%.1f_frame%d_act', resp_vals(resp_ndx), frame));
 	end
 end
 return
