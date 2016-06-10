@@ -1,5 +1,9 @@
 function time_series_side_by_side(time_series, varargin)
 % function time_series_side_by_side(time_series, varargin)
+%
+% varargin:
+%       yoffset
+%       t
 arg.yoffset = 2*max(abs(col(time_series)));
 arg.t = [];
 arg.same_amp = false;

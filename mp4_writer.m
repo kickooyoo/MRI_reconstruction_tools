@@ -7,6 +7,9 @@ function mp4_writer(x, filename, varargin)
 % varargin: rate (fps)
 %			magnify, 100 = regular
 %			texts
+%                       aspect
+%
+%       
 % wrapper for Matlab's VideoWriter
 arg.NI = 1; % number of images side by side
 arg.rate = 1; % fps
