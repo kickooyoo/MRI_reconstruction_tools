@@ -6,6 +6,7 @@ function time_series_side_by_side(time_series, varargin)
 %       t
 arg.yoffset = 2*max(abs(col(time_series)));
 arg.t = [];
+arg.labels = {};
 arg.same_amp = false;
 arg = vararg_pair(arg, varargin);
 
@@ -21,6 +22,12 @@ end
 offsets = ones(Ntime, 1) * arg.yoffset*col(0:-1:-(Nseries - 1))';
 if isempty(arg.t)
         plot(offsets + time_series)
+	text_x = Ntime + 5;
 else
         plot(arg.t, offsets + time_series)
+	text_x = max(arg.t) + 5;
+end
+
+if ~isempty(arg.labels)
+	text(text_x*ones(1,Nseries), offsets(1,:), arg.labels);
 end
