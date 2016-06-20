@@ -4,6 +4,9 @@ function time_series_side_by_side(time_series, varargin)
 % varargin:
 %       yoffset
 %       t
+%	labels
+% 	same_amp
+
 arg.yoffset = 2*max(abs(col(time_series)));
 arg.t = [];
 arg.labels = {};

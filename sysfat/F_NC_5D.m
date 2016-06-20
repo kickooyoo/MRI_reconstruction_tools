@@ -53,13 +53,13 @@ if ~isempty(arg.sampling) % apply sampling for user
 			in_resp = reshape(full(diag(arg.sampling(resp_ndcs, resp_ndcs))), Nro, Nz, Nspokes); % [Nro Nslice] number of frames associated with given respiratory state
 			Nsamp_per_spoke = Nro*squeeze(in_resp(1,1,:));
 			arg.Ns{ii} = sum(reshape(Nsamp_per_spoke, M, Nt), 1); 
-			freqs_per_resp{ii} = col(freqs(:, spoke_ndcs(boolean(in_resp(1,1,:)))));
+			freqs_per_resp{ii} = col(freqs(:, spoke_ndcs(logical(in_resp(1,1,:)))));
 		end
 		freqs = freqs_per_resp;
 	else	
 		Nspokes = size(arg.sampling, 2);
-		if ~all([Nro, Nspokes, Nz, Nresp] == size(arg.sampling))
-			display('size mismastch');
+		if ~all([Nro, Nspokes, Nz, Nresp] == [size(arg.sampling, 1) size(arg.sampling, 2) size(arg.sampling, 3), size(arg.sampling, 4)])
+				display('size mismastch');
 			keyboard
 		end
 		M = Nspokes/Nt;
@@ -72,7 +72,7 @@ if ~isempty(arg.sampling) % apply sampling for user
 			in_resp = squeeze(sum(arg.sampling(:,:,:,ii),2)); % [Nro Nslice] number of frames associated with given respiratory state
 			Nsamp_per_spoke = Nro*squeeze(arg.sampling(1,:,1,ii));
 			arg.Ns{ii} = sum(reshape(Nsamp_per_spoke, M, Nt), 1); 
-			freqs_per_resp{ii} = col(freqs(:, spoke_ndcs(boolean(arg.sampling(1,:,1,ii)))));
+			freqs_per_resp{ii} = col(freqs(:, spoke_ndcs(logical(arg.sampling(1,:,1,ii)))));
 		end
 		freqs = freqs_per_resp;
 	end
