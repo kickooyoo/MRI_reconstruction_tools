@@ -7,6 +7,20 @@ function F = GnufftSoS(freqs, Ns, Nx, Ny, Nz, varargin)
 % one frame, one coil
 % 2D freqs only!
 % since stack of stars is same in z, use same 2D Gnufft
+%
+% | inputs:
+% | 	freqs
+% | 	Ns
+% | 	Nx
+% |	Ny
+% | 	Nz
+% | varargin:
+% |	mask
+% | 	threeD 
+% | 		default: true
+% | 		automatically does Cartesian sampling in z based on Nz
+% | fatrix output:
+% | 	if threeD, Ns*Nz, else Ns
 
 arg.Ns = Ns;
 arg.Nx = Nx;
@@ -28,7 +42,7 @@ if arg.threeD
 	%om_z = double(repmat(permute(col(-Nz/2:Nz/2-1)/Nz, [2 3 1]), [Nro Nspokes 1]));
 	kx = real(col(k3D));
 	ky = imag(col(k3D));
-	om = 2*pi*[kx, ky, kz];
+	arg.om = 2*pi*[kx, ky, kz];
 	simple_dims = [Nx Ny Nz];
 	Jd = [6 6 6];
 else
@@ -36,7 +50,7 @@ else
 	simple_dims = [Nx, Ny];
 	Jd = [6 6];
 end
-arg.A = Gnufft(true(simple_dims), {om; simple_dims; Jd; ceil(simple_dims*1.5); max(floor(simple_dims/2),1); 'table'; 2^10; 'minmax:kb'});
+arg.A = Gnufft(true(simple_dims), {arg.om; simple_dims; Jd; ceil(simple_dims*1.5); max(floor(simple_dims/2),1); 'table'; 2^10; 'minmax:kb'});
 
 if arg.threeD
 	F = fatrix2('idim', [arg.Nx arg.Ny arg.Nz] ,'arg',arg,'odim', ...

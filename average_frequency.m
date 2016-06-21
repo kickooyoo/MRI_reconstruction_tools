@@ -21,6 +21,7 @@ function [avg_Hz, top_Hz, top_weights] = average_frequency(signal, sampling_peri
 %		energy in frequency domain associated with each harmonic
 
 arg.harmonic_tolerance = 0.25; % set o zero for no harmonic grouping at all
+arg.num_harmonics = 4;
 arg = vararg_pair(arg, varargin);
 
 N = length(signal);
@@ -44,19 +45,21 @@ for ii = 1:ceil(N/2)
 	if isempty(harmonics)
 		upper_harmonics = harmonics;
 	else
-		upper_harmonics = (1:4)'*harmonics;
+		upper_harmonics = (1:arg.num_harmonics)'*harmonics;
 	end
-	match = abs(upper_harmonics - curr_freq)./curr_freq < arg.harmonic_tolerance;
+	bin_close = abs(upper_harmonics - curr_freq)./curr_freq;
+	match = bin_close < arg.harmonic_tolerance;
 	if sum(match) == 0
 		harmonics = cat(2, harmonics, curr_freq);
 		harmonic_weights = cat(2, harmonic_weights, sort_weights(ii));
 	else
-		if sum(match) > 1
-			display('add weight to multiple? split it?');
-			keyboard
+		best_bin = ceil(find(bin_close == min(col(bin_close)))/arg.num_harmonics);
+		if length(best_bin) > 1
+			%display('add weight to multiple? split it?');
+			best_bin = best_bin(1);
 		end
-		bin = find(sum(match,1));
-		harmonic_weights(bin) = harmonic_weights(bin) + sort_weights(ii);
+		%bin = find(sum(match,1));
+		harmonic_weights(best_bin) = harmonic_weights(best_bin) + sort_weights(ii);
 	end
 end
 

@@ -18,6 +18,9 @@ function F = F_NC_5D(freqs, Ns, Nro, Nt, Nresp, Nx, Ny, Nz, Nc, varargin)
 % | 		if provided (sparse)
 % | 			expect freqs [Nro Nspokes]
 % | 			leave Ns empty
+% | output of fatrix is single column of samples
+% | 	ordered:
+% | 		[<output of GnufftSoS>, frame, resp, coil]
 % | 
 arg.Ns = Ns;
 arg.Nro = Nro;
@@ -50,7 +53,8 @@ if ~isempty(arg.sampling) % apply sampling for user
 		Nsparse_dresp = Nro * Nspokes * Nz;
 		for ii = 1:Nresp
 			resp_ndcs = Nsparse_dresp * (ii - 1) + (1:Nsparse_dresp);
-			in_resp = reshape(full(diag(arg.sampling(resp_ndcs, resp_ndcs))), Nro, Nz, Nspokes); % [Nro Nslice] number of frames associated with given respiratory state
+			% [Nro Nslice] number of frames associated with given respiratory state
+			in_resp = reshape(full(diag(arg.sampling(resp_ndcs, resp_ndcs))), Nro, Nz, Nspokes); 
 			Nsamp_per_spoke = Nro*squeeze(in_resp(1,1,:));
 			arg.Ns{ii} = sum(reshape(Nsamp_per_spoke, M, Nt), 1); 
 			freqs_per_resp{ii} = col(freqs(:, spoke_ndcs(logical(in_resp(1,1,:)))));
@@ -59,7 +63,7 @@ if ~isempty(arg.sampling) % apply sampling for user
 	else	
 		Nspokes = size(arg.sampling, 2);
 		if ~all([Nro, Nspokes, Nz, Nresp] == [size(arg.sampling, 1) size(arg.sampling, 2) size(arg.sampling, 3), size(arg.sampling, 4)])
-				display('size mismastch');
+			display('size mismastch');
 			keyboard
 		end
 		M = Nspokes/Nt;

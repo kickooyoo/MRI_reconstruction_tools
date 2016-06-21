@@ -11,6 +11,7 @@ arg.yoffset = 2*max(abs(col(time_series)));
 arg.t = [];
 arg.labels = {};
 arg.same_amp = false;
+arg.draw_zero = false;
 arg = vararg_pair(arg, varargin);
 
 [Ntime, Nseries] = size(time_series);
@@ -24,10 +25,12 @@ end
 
 offsets = ones(Ntime, 1) * arg.yoffset*col(0:-1:-(Nseries - 1))';
 if isempty(arg.t)
-        plot(offsets + time_series)
+        plot(offsets + time_series);
+	hold on; plot(offsets, 'k--');
 	text_x = Ntime + 5;
 else
         plot(arg.t, offsets + time_series)
+	hold on; plot(arg.t, offsets, 'k--');
 	text_x = max(arg.t) + 5;
 end
 
