@@ -20,7 +20,7 @@ function F = F_NC_5D(freqs, Ns, Nro, Nt, Nresp, Nx, Ny, Nz, Nc, varargin)
 % | 			leave Ns empty
 % | output of fatrix is single column of samples
 % | 	ordered:
-% | 		[<output of GnufftSoS>, frame, resp, coil]
+% | 		[readout, spoke, slice, frame, resp, coil]
 % | 
 arg.Ns = Ns;
 arg.Nro = Nro;
@@ -81,6 +81,7 @@ if ~isempty(arg.sampling) % apply sampling for user
 		freqs = freqs_per_resp;
 	end
 end
+arg.Nspokes = Nspokes;
 
 all_Ns = zeros(Nt, Nresp);
 for resp_ndx = 1:arg.Nresp

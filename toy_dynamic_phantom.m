@@ -9,7 +9,7 @@ arg.Nt = 30;
 arg.radii = [5, 8];
 arg.values = [1 5];
 arg.resp_freq = 1/arg.Nt;
-arg.centers = [arg.Nx/2 arg.Ny/2 arg.Nz/2; arg.Nx/2 arg.Ny/2 arg.Nz + arg.radii(2)/2];
+arg.centers = [arg.Nx/2 arg.Ny/2 arg.Nz/2; arg.Nx/2 arg.Ny/4 arg.Nz + arg.radii(2)/2];
 arg.motion = []; % [num_spheres, Nt, 3]
 arg = vararg_pair(arg, varargin);
 
@@ -19,6 +19,10 @@ assert(all(size(arg.centers) == [num_spheres 3]), 'invalid dimension for arg.cen
 if isempty(arg.motion)
 	motion = col(sin((1:arg.Nt)*2*pi*arg.resp_freq));
 	arg.motion(:,:,3) = col(arg.radii/2)*permute(motion, [2 1 3]);
+end
+
+if isinf(arg.resp_freq)
+	arg.motion = zeros(num_spheres, arg.Nt, 3);
 end
 
 [xx, yy, zz] = ndgrid(1:arg.Nx, 1:arg.Ny, 1:arg.Nz);
