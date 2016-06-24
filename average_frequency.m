@@ -23,6 +23,7 @@ function [avg_Hz, top_Hz, top_weights] = average_frequency(signal, sampling_peri
 arg.method = 'autocorr';%'harmonics'; 
 arg.harmonic_tolerance = 0.25; % set o zero for no harmonic grouping at all
 arg.num_harmonics = 4;
+arg.freq_window = [0.1 1]; % use for autocorr
 arg = vararg_pair(arg, varargin);
 
 N = length(signal);
@@ -76,22 +77,27 @@ case 'harmonics'
 
 case 'autocorr'
 
-	lags = 5:min(20, length(signal));
+% 	lags = 5:min(20, length(signal));
+        lags = 1./(arg.freq_window * sampling_period);
+        lags = max(round(lags(2)), 1) : min(round(lags(1)), length(signal));
 	for ii = 1:length(lags)
 		if lags(ii) < 0
 			autoc(ii) = mean(abs(signal(1:end + lags(ii)) - signal(1-lags(ii):end)).^2);
 		else
 	 		autoc(ii) = mean(abs(signal(1+lags(ii):end)-signal(1:end -lags(ii))).^2);
 		end
-	end
-	period = lags(find(autoc == min(autoc))); % samples
-	if length(period) ~= 1, keyboard; end
+        end
+        [autoc_peaks, autoc_peak_ndcs] = findpeaks(autoc, 'MinPeakDistance', lags(1));
+	period = lags(autoc_peak_ndcs(abs(autoc_peaks - max(autoc)) < 1e-2)); % samples
+	if length(period) ~= 1
+                period = mode(period - [0 period(1:end-1)]);
+        end
 	if abs(period) <  min(lags), keyboard; end
 	avg_Hz = 1/(period * sampling_period);% 1 / (sample/cycle * seconds/sample) = cycles/second = Hz
 	top_weights = []; % to do: fill in runner up lags
 	top_Hz = [];
-	figure; plot(signal); hold on; plot(signal(1+period:end), 'r'); title(sprintf('period: %d samp, %1.1f Hz', period, avg_Hz));
-	keyboard
+% 	figure; plot(signal); hold on; plot(signal(1+period:end), 'r'); title(sprintf('period: %d samp, %1.1f Hz', period, avg_Hz));
+% 	keyboard
 otherwise 
 	display(sprintf('unknown option %s', arg.method));
 	keyboard
