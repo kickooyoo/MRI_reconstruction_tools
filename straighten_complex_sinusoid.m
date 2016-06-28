@@ -44,16 +44,20 @@ for ii = 1:Nsignals
                 % r1^2 *||C Ax||^2 + r1^2 * ||C Ay||^2 + r2^2 * ||C phi||^2
                 reg_term = @(x) [arg.reg(1) * (x(4 : 3 + Nt - 1) - circshift(x(4 : 3 + Nt - 1), 1)); %Ax
                         arg.reg(1) * (x(4 + Nt : 3 + 2*Nt - 1) - circshift(x(4 + Nt : 3 + 2*Nt - 1), 1)); %Ay
+			arg.reg(1) * (sqrt(abs(x(4 : 3 + Nt - 1)).^2 + abs(x(4 + Nt : 3 + 2*Nt - 1)).^2) ...
+			- sqrt(abs(circshift(x(4 : 3 + Nt - 1), 1)).^2 + abs(circshift(x(4 + Nt : 3 + 2*Nt - 1), 1)).^2)); % magnitude
                         arg.reg(2) * (x(4 + 2*Nt : end) - circshift(x(4 + 2*Nt : end), 1))]; %phi
-                sinu_diff = @(x) [construct_from_params(x, arg); zeros(3*(Nt - 1),1)] - ...
+                sinu_diff = @(x) [construct_from_params(x, arg); zeros(4*(Nt - 1),1)] - ...
                         [col(rsig); col(isig); reg_term(x)];
                 phi_size = Nt;
         else
                 x = [13; 0; 0.5*ones(Nt, 1); 0.1*ones(Nt, 1); 0];
                 % r1^2 *||C Ax||^2 + r1^2 * ||C Ay||^2 
                 reg_term = @(x) [arg.reg(1) * (x(4 : 3 + Nt - 1) - circshift(x(4 : 3 + Nt - 1), 1)); %Ax
-                        arg.reg(1) * (x(4 + Nt : 3 + 2*Nt - 1) - circshift(x(4 + Nt : 3 + 2*Nt - 1), 1))]; %Ay;
-                sinu_diff = @(x) [construct_from_params(x, arg); zeros(2*(Nt - 1),1)] - ...
+                        arg.reg(1) * (x(4 + Nt : 3 + 2*Nt - 1) - circshift(x(4 + Nt : 3 + 2*Nt - 1), 1)); %Ay;
+			arg.reg(1) * (sqrt(abs(x(4 : 3 + Nt - 1)).^2 + abs(x(4 + Nt : 3 + 2*Nt - 1)).^2) ...
+			- sqrt(abs(circshift(x(4 : 3 + Nt - 1), 1)).^2 + abs(circshift(x(4 + Nt : 3 + 2*Nt - 1), 1)).^2))]; % magnitude
+                sinu_diff = @(x) [construct_from_params(x, arg); zeros(3*(Nt - 1),1)] - ...
                         [col(rsig); col(isig); reg_term(x)];
                 phi_size = 1;
         end
@@ -83,7 +87,17 @@ for ii = 1:Nsignals
         
         x_mag = Ax_hat .* cos(omega_hat*t + theta_hat);
         i_mag = Ay_hat .* sin(omega_hat*t + theta_hat);
-        if sum(Ax_hat > Ay_hat) > Nt/2
+	
+	rot = zeros(2*Nt);
+	if ~arg.tvar_phi
+		phi_hat = repmat(phi_hat, [Nt 1]);
+	end
+	for tt = 1:Nt
+		rot(2*(tt - 1) + 1: tt*2, 2*(tt - 1) + 1 : 2*tt) = [cos(phi_hat(tt)) -sin(phi_hat(tt)); sin(phi_hat(tt)) cos(phi_hat(tt))];
+	end
+	slanted_mag = rot*[x_mag; i_mag];
+        
+	if sum(Ax_hat > Ay_hat) > Nt/2
                 mag(:,ii) = x_mag;
         else
                 mag(:,ii) = i_mag;
@@ -92,10 +106,11 @@ for ii = 1:Nsignals
                 figure; subplot(1,2,1); plot(mag(:,ii));
                 subplot(1,2,2); plot(signals(:,ii));
                 hold on; plot(x_mag + 1i*i_mag, 'r');
+		hold on; plot(slanted_mag(1:Nt) + 1i*slanted_mag(Nt + 1:end), 'g');
                 axis equal             
         end
 end
-
+keyboard
 end
 
 

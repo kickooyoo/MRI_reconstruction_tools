@@ -21,8 +21,8 @@ function [avg_Hz, top_Hz, top_weights] = average_frequency(signal, sampling_peri
 %	top_weights [1 M] (double)
 %		energy in frequency domain associated with each harmonic
 arg.method = 'autocorr';%'harmonics'; 
-arg.harmonic_tolerance = 0.25; % set o zero for no harmonic grouping at all
-arg.num_harmonics = 4;
+arg.harmonic_tolerance = 0.1; % set o zero for no harmonic grouping at all
+arg.num_harmonics = 8;%4;
 arg.freq_window = [0.1 1]; % use for autocorr
 arg = vararg_pair(arg, varargin);
 

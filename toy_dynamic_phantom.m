@@ -19,6 +19,8 @@ assert(all(size(arg.centers) == [num_spheres 3]), 'invalid dimension for arg.cen
 if isempty(arg.motion)
 	motion = col(sin((1:arg.Nt)*2*pi*arg.resp_freq));
 	arg.motion(:,:,3) = col(arg.radii/2)*permute(motion, [2 1 3]);
+else
+	motion = arg.motion;
 end
 
 if isinf(arg.resp_freq)
