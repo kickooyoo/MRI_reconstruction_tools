@@ -20,7 +20,7 @@ if isempty(arg.motion)
 	motion = col(sin((1:arg.Nt)*2*pi*arg.resp_freq));
 	arg.motion(:,:,3) = col(arg.radii/2)*permute(motion, [2 1 3]);
 else
-	motion = arg.motion;
+	motion = col(mean(arg.motion(:,:,3),1));
 end
 
 if isinf(arg.resp_freq)
