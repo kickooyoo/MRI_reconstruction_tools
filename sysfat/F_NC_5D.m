@@ -7,7 +7,7 @@ function F = F_NC_5D(freqs, Ns, Nro, Nt, Nresp, Nx, Ny, Nz, Nc, varargin)
 % | 	freqs ([1 Nresp] cell of [Nro*Nspokes(resp)*Nslice] complex double)
 % |	Ns ([1 Nresp] cell of [1 Nt] int)
 % |		DOES THIS INCLUDE NRO AND NSLICE FACTOR??
-% |
+% | varargin:
 % | 	list_mode
 % |		output size: [sum(Ns) Nc]
 % |		freqs size: Nresp length cell, each [sum(Ns_resp) 1],
@@ -81,7 +81,6 @@ if ~isempty(arg.sampling) % apply sampling for user
 		freqs = freqs_per_resp;
 	end
 end
-arg.Nspokes = Nspokes;
 
 all_Ns = zeros(Nt, Nresp);
 for resp_ndx = 1:arg.Nresp

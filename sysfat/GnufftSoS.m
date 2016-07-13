@@ -46,7 +46,7 @@ if arg.threeD
 	simple_dims = [Nx Ny Nz];
 	Jd = [6 6 6];
 else
-	om = [real(col(freqs)), imag(col(freqs))]*2*pi;
+	arg.om = [real(col(freqs)), imag(col(freqs))]*2*pi;
 	simple_dims = [Nx, Ny];
 	Jd = [6 6];
 end
