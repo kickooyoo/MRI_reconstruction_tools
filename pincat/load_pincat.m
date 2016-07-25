@@ -1,6 +1,8 @@
 function pincat = load_pincat(dir_name, varargin)
 %function pincat = load_pincat(dir_name, varargin)
-% really helpful for pincat with outframes > 1 
+% really helpful for pincat with outframes > 1
+% 
+% for separately generated frames/respiratory states, use check_resp_pincat script 
 
 arg.dims = [256 256 100];
 arg.prefix = 'pincat_act';

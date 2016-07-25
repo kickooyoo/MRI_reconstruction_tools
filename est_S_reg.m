@@ -16,7 +16,7 @@ function [sense_maps, bodycoil_mask] = est_S_reg(coil_images, varargin)
 % 2D only :(
 Nc = size(coil_images, 3);
 arg.figs_on = 0;
-arg.thresh = 0.2;% 0.45; %0.2 good for pat2
+arg.thresh = 0.2;% 0.45; %0.2 good for pat2 % only used for generating bodycoil_mask
 arg.l2b = 2;
 arg.dilate = 3;% 5;% 3 good for pat2
 arg.covmat = [];
@@ -55,12 +55,12 @@ if isempty(arg.bodycoil_mask)
 	end
 end
 bodycoil_mask = arg.bodycoil_mask;
-bodycoil_sim = bodycoil_sim.*bodycoil_mask;
 if arg.check_bodycoil_mask
-        figure; im(bodycoil_sim)
+        figure; im(bodycoil_sim.*bodycoil_mask)
         display('check masks, bodycoil_sim = redo_bodycoil_mask(SoS, arg)?');
         keyboard;
 end
+bodycoil_sim = bodycoil_sim.*bodycoil_mask;
 
 if ~all(size(bodycoil_sim) == size(coil_images(:,:,1)))
 	display('sizes of bodycoil_sim and coil_images do not match');

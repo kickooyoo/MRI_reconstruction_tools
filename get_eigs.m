@@ -56,7 +56,7 @@ else % assume constructed with GsplineF
         %Q = Gdft('mask',true(A.arg.Nx,A.arg.Ny));
         %Qcells = repmat({Q},A.arg.Nc,1);
         %Qbig = block_fatrix(Qcells);
-        if isfield(A.arg, 'Nx') && isfield(A.arg.Ny)
+        if isfield(A.arg, 'Nx') && isfield(A.arg, 'Ny')
                 Q = GsplineF(A.arg.Nx, A.arg.Ny, 1, A.arg.Nc); % no real difference between block_fatrix method and GsplineF
                 e0 = zeros(A.arg.Nx, A.arg.Ny, A.arg.Nc);
         else

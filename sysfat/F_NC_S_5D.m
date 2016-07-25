@@ -96,7 +96,7 @@ for resp_ndx = 1:arg.Nresp
 	if numel(curr_freqs) ~= sum(curr_Ns)
 		display('k and Ns mismatch');
 		keyboard
-                endi
+        end
         for frame_ndx = 1:arg.Nt
                 if curr_Ns(frame_ndx) == 0
                         A{frame_ndx, resp_ndx} = [];

@@ -16,6 +16,7 @@ function [full_data, clip_spoke] = PF_3D_MC(data, varargin)
 %		possibly updated Nspokes (even)
 %
 % PF_3D option 'PF_location' == [0 0 1] to fit GRASP Siemens data
+%	which is radial stack of stars
 arg.params = [];
 arg.Nslice = [];
 arg.full_dims = [];
