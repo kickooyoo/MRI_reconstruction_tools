@@ -5,10 +5,13 @@ function [full_data, clip_spoke] = PF_3D_MC(data, varargin)
 % inputs:
 % 	data [Nro Nc Nspokes Nslice_PF]
 % varargin:
-%	(a) params 
+%	params 
 %		struct with lots of info, but specifically Nslice
-%	(b) Nslice
-%	(c) full_dims: [Nro Nspokes Nslice]
+%	Nslice
+%	full_dims: [Nro Nspokes Nslice]
+%	block_size (int)
+%		break up PF_3D computation by block_size spokes
+%		default: 100
 %
 % outputs:
 % 	full_data [Nro Nc Nspokes_new Nslice]
@@ -20,6 +23,7 @@ function [full_data, clip_spoke] = PF_3D_MC(data, varargin)
 arg.params = [];
 arg.Nslice = [];
 arg.full_dims = [];
+arg.block_size = 100;
 arg = vararg_pair(arg, varargin);
 
 assert(ndims(data) == 4, 'incorrect data format for PF_3D_MC');
@@ -49,9 +53,16 @@ data = data(:, :, 1:arg.full_dims(2), :);
 
 full_data = zeros(Nro, Nc, Nspokes, arg.full_dims(3));
 for coil_ndx = 1:Nc
-	coil_data = squeeze(data(:, coil_ndx, :, :));
-	[img, full_data(:,coil_ndx,:,:)] = PF_3D(coil_data, arg.full_dims, ...
-		'PF_location', [0 0 1], 'window_step3', 3);
+	for spoke_block = 1:ceil(Nspokes/arg.block_size)
+		if spoke_block == ceil(Nspokes/arg.block_size)
+			spoke_ndcs = arg.block_size*(spoke_block - 1):Nspokes;
+		else
+			spoke_ndcs = (1:arg.block_size) + arg.block_size*(spoke_block - 1);
+		end
+		coil_data = squeeze(data(:, coil_ndx, spoke_ndcs, :));
+		[img, full_data(:,coil_ndx, spoke_ndcs,:)] = PF_3D(coil_data, arg.full_dims, ...
+			'PF_location', [0 0 1], 'window_step3', 3);
+	end
 end
 
 
