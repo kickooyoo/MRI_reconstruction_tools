@@ -49,9 +49,16 @@ data = data(:, :, 1:arg.full_dims(2), :);
 
 full_data = zeros(Nro, Nc, Nspokes, arg.full_dims(3));
 for coil_ndx = 1:Nc
-	coil_data = squeeze(data(:, coil_ndx, :, :));
-	[img, full_data(:,coil_ndx,:,:)] = PF_3D(coil_data, arg.full_dims, ...
-		'PF_location', [0 0 1], 'window_step3', 3);
+	for spoke_block = 1:ceil(Nspokes/100)
+		if spoke_block == ceil(Nspokes/100)
+			spoke_ndcs = 100*(spoke_block - 1):Nspokes;
+		else
+			spoke_ndcs = (1:100) + 100*(spoke_block - 1);
+		end
+		coil_data = squeeze(data(:, coil_ndx, spoke_ndcs, :));
+		[img, full_data(:,coil_ndx, spoke_ndcs,:)] = PF_3D(coil_data, arg.full_dims, ...
+			'PF_location', [0 0 1], 'window_step3', 3);
+	end
 end
 
 
