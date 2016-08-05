@@ -19,6 +19,8 @@ function FS = F_NC_S_5D(freqs, sense_maps, Ns, Nro, Nt, Nresp, varargin)
 % | 		if provided (xsparse)
 % | 			expect freqs [Nro Nspokes]
 % | 			leave Ns empty
+% |	doboth (bool) [1 2]
+% |		do F, do S, default: true(1,2)
 % | output of fatrix is single column of samples
 % | 	ordered:
 % | 		[readout, spoke, slice, frame, resp, coil]
@@ -34,6 +36,7 @@ arg.Nresp = Nresp;
 arg.Nr = arg.Nx * arg.Ny * arg.Nz;
 arg.sampling = [];
 arg.smaps = sense_maps;
+arg.doboth = [true true];
 % arg.mask = true(arg.Nx, arg.Ny, arg.Nz, arg.Nt, arg.Nr, arg.Nc);
 arg = vararg_pair(arg, varargin);
 
@@ -116,8 +119,18 @@ arg.A = A;
 arg.all_Ns = all_Ns;
 arg.cum_Ns = reshape(cumsum(col(arg.all_Ns)), arg.Nt, arg.Nresp);
 
-FS = fatrix2('idim', [arg.Nx arg.Ny arg.Nz arg.Nt arg.Nresp] ,'arg',arg,'odim', ...
-        [sum(col(arg.all_Ns))*arg.Nz arg.Nc], 'forw', @F_NC_S_5D_forw, ...
+if arg.doboth(1)
+	odims = [sum(col(arg.all_Ns))*arg.Nz arg.Nc]);
+else
+	odims = [arg.Nx arg.Ny arg.Nz arg.Nt arg.Nresp arg.Nc];
+end
+if arg.doboth(2)
+	idims = [arg.Nx arg.Ny arg.Nz arg.Nt arg.Nresp];
+else
+	idims = [arg.Nx arg.Ny arg.Nx arg.Nt arg.Nresp arg.Nc];
+end
+FS = fatrix2('idim', idims, 'arg', arg,'odim', ...
+        odims, 'forw', @F_NC_S_5D_forw, ...
         'back', @F_NC_S_5D_back);%, 'imask', arg.mask);
 
 
@@ -132,8 +145,16 @@ for coil_ndx = 1:arg.Nc
         for resp_ndx = 1:arg.Nresp
                 for frame_ndx = 1:arg.Nt
                         if ~isempty(arg.A{frame_ndx, resp_ndx})
-                                curr_s = x(:,:,:, frame_ndx, resp_ndx) .* arg.smaps(:,:,:, coil_ndx);
-                                curr_S = arg.A{frame_ndx, resp_ndx}*col(curr_s);
+            			if arg.doboth(2)
+		                	curr_s = x(:,:,:, frame_ndx, resp_ndx) .* arg.smaps(:,:,:, coil_ndx);
+				else
+					curr_s = x(:,:,:, frame_ndx, resp_ndx, coil_ndx);
+				end
+				if arg.doboth(1)
+                                	curr_S = arg.A{frame_ndx, resp_ndx}*col(curr_s);
+				else
+					curr_S = col(curr_s);
+				end
                                 coil_S = [coil_S; col(curr_S)];
                         end
                 end
@@ -173,14 +194,22 @@ for resp_ndx = 1:arg.Nresp
                                 if ~all(size(curr_S) == curr_A.odim)
                                         keyboard
                                 end
-                                curr_s = arg.A{frame_ndx, resp_ndx}'*curr_S;
+				if arg.doboth(1)
+                                	curr_s = arg.A{frame_ndx, resp_ndx}'*curr_S;
+				else
+                                	curr_s = curr_S;
+				end
                                 small_s(:,:,:, coil_ndx) = reshape(curr_s, arg.Nx, arg.Ny, arg.Nz);
                         else
                                 small_s(:,:,:,coil_ndx) = zeros(arg.Nx, arg.Ny, arg.Nz);
                         end
                 end
-                small_prod = conj(arg.smaps) .* small_s;
-                x(:,:,:, frame_ndx, resp_ndx) = sum(small_prod, 4);
+		if arg.doboth(2)
+			small_prod = conj(arg.smaps) .* small_s;
+			x(:,:,:, frame_ndx, resp_ndx) = sum(small_prod, 4);
+		else
+			x(:,:,:, frame_ndx, resp_ndx, :) = small_s;
+		end
         end
 end
 
