@@ -9,7 +9,7 @@ import os.path
 organ_line = 'liver_activity = '
 resp_line = 'resp_start_ph_index = '
 
-liver_vals = range(0, 150, 5)
+liver_vals = range(120, 180, 5)
 
 # resp_start_ph_index 
 resp_vals = [0.1, 0.3, 0.5, 0.7]

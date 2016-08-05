@@ -21,6 +21,7 @@ function FS = F_NC_S_5D(freqs, sense_maps, Ns, Nro, Nt, Nresp, varargin)
 % | 			leave Ns empty
 % |	doboth (bool) [1 2]
 % |		do F, do S, default: true(1,2)
+% | 	small_mask (bool) [Nx Ny]
 % | output of fatrix is single column of samples
 % | 	ordered:
 % | 		[readout, spoke, slice, frame, resp, coil]
@@ -37,7 +38,7 @@ arg.Nr = arg.Nx * arg.Ny * arg.Nz;
 arg.sampling = [];
 arg.smaps = sense_maps;
 arg.doboth = [true true];
-% arg.mask = true(arg.Nx, arg.Ny, arg.Nz, arg.Nt, arg.Nr, arg.Nc);
+arg.small_mask = []; % save memory
 arg = vararg_pair(arg, varargin);
 
 % do I need to know Nspokes for this?
@@ -120,25 +121,34 @@ arg.all_Ns = all_Ns;
 arg.cum_Ns = reshape(cumsum(col(arg.all_Ns)), arg.Nt, arg.Nresp);
 
 if arg.doboth(1)
-	odims = [sum(col(arg.all_Ns))*arg.Nz arg.Nc]);
+	odims = [sum(col(arg.all_Ns))*arg.Nz arg.Nc];
 else
 	odims = [arg.Nx arg.Ny arg.Nz arg.Nt arg.Nresp arg.Nc];
 end
 if arg.doboth(2)
 	idims = [arg.Nx arg.Ny arg.Nz arg.Nt arg.Nresp];
 else
-	idims = [arg.Nx arg.Ny arg.Nx arg.Nt arg.Nresp arg.Nc];
+	idims = [arg.Nx arg.Ny arg.Nz arg.Nt arg.Nresp arg.Nc];
 end
-FS = fatrix2('idim', idims, 'arg', arg,'odim', ...
-        odims, 'forw', @F_NC_S_5D_forw, ...
-        'back', @F_NC_S_5D_back);%, 'imask', arg.mask);
+if (ndims(arg.small_mask) ~= 2) || ( ~all(size(arg.small_mask) == idims(1:2)))
+	display('dims of mask not right');
+	keyboard;
+end
+if ~isempty(arg.small_mask)
+	idims = [sum(col(arg.small_mask)) idims(3:end)];
+end
 
+FS = fatrix2('idim', idims, 'arg', arg,'odim', odims, 'forw', @F_NC_S_5D_forw, ...
+	'back', @F_NC_S_5D_back);
 
 end
 
 % y = FSx
 function y = F_NC_S_5D_forw(arg, x)
 
+if ~isempty(arg.small_mask)
+	x = embed(x, arg.small_mask);
+end
 y = [];
 for coil_ndx = 1:arg.Nc
         coil_S = [];
@@ -168,7 +178,11 @@ end
 % x = F'S'y
 function x = F_NC_S_5D_back(arg, y)
 
-x = zeros(arg.Nx, arg.Ny, arg.Nz, arg.Nt, arg.Nresp, 'single');
+if arg.doboth(2)
+	x = zeros(arg.Nx, arg.Ny, arg.Nz, arg.Nt, arg.Nresp, 'single');
+else
+	x = zeros(arg.Nx, arg.Ny, arg.Nz, arg.Nt, arg.Nresp, arg.Nc, 'single');
+end
 
 for resp_ndx = 1:arg.Nresp
         for frame_ndx = 1:arg.Nt
@@ -199,7 +213,7 @@ for resp_ndx = 1:arg.Nresp
 				else
                                 	curr_s = curr_S;
 				end
-                                small_s(:,:,:, coil_ndx) = reshape(curr_s, arg.Nx, arg.Ny, arg.Nz);
+				small_s(:,:,:, coil_ndx) = reshape(curr_s, arg.Nx, arg.Ny, arg.Nz);
                         else
                                 small_s(:,:,:,coil_ndx) = zeros(arg.Nx, arg.Ny, arg.Nz);
                         end
@@ -208,10 +222,12 @@ for resp_ndx = 1:arg.Nresp
 			small_prod = conj(arg.smaps) .* small_s;
 			x(:,:,:, frame_ndx, resp_ndx) = sum(small_prod, 4);
 		else
-			x(:,:,:, frame_ndx, resp_ndx, :) = small_s;
+			x(:,:,:, frame_ndx, resp_ndx, :) = permute(small_s, [1 2 3 5 6 4]);
 		end
         end
 end
-
+if ~isempty(arg.small_mask)
+	x = masker(x, arg.small_mask);
+end
 
 end

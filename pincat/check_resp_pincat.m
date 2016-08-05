@@ -1,3 +1,4 @@
+display('run in /y/mtle/resp_pincat/Nt30/');
 pincat_dir = '.';
 Nframes = 30;
 resp_vals = [0.1 0.3 0.5 0.7];
