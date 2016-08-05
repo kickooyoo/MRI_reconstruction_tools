@@ -57,7 +57,7 @@ end
 bodycoil_mask = arg.bodycoil_mask;
 if arg.check_bodycoil_mask
         figure; im(bodycoil_sim.*bodycoil_mask)
-        display('check masks, bodycoil_sim = redo_bodycoil_mask(SoS, arg)?');
+        display('check masks, bodycoil_mask = redo_bodycoil_mask(SoS, arg)?');
         keyboard;
 end
 bodycoil_sim = bodycoil_sim.*bodycoil_mask;
@@ -78,14 +78,12 @@ end
 
 end
 
-function bodycoil_sim = redo_bodycoil_mask(SoS, arg)
+function bodycoil_mask = redo_bodycoil_mask(SoS, arg)
 
 bodycoil_sim = SoS;%.*exp(1i*angle(coil_images(:,:,9)));
 bodycoil_mask = adaptivethreshold(SoS, 150, arg.thresh) & (SoS > arg.thresh/2*max(col(SoS)));
 bodycoil_mask = imerode(bodycoil_mask, strel('disk', round(0.3*arg.dilate))); % get rid of extraneous pixels outside body
 bodycoil_mask = bwconvhull(bodycoil_mask);
 bodycoil_mask = imerode(bodycoil_mask, strel('disk', round(1.5*arg.dilate))); % further erode
-bodycoil_sim = bodycoil_sim.*bodycoil_mask;
-%figure; im(bodycoil_sim)
 
 end

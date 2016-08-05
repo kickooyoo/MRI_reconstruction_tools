@@ -1,5 +1,5 @@
-function [full_data, clip_spoke] = PF_3D_MC(data, varargin)
-%function [img, full_data, params] = PF_3D_MC(data, params)
+function [data, clip_spoke] = PF_3D_MC(data, varargin)
+%function [data, params] = PF_3D_MC(data, params)
 % wrapper for PF_3D for multicoil
 % 
 % inputs:
@@ -14,7 +14,7 @@ function [full_data, clip_spoke] = PF_3D_MC(data, varargin)
 %		default: 100
 %
 % outputs:
-% 	full_data [Nro Nc Nspokes_new Nslice]
+% 	data [Nro Nc Nspokes_new Nslice]
 % 	clip_spoke
 %		possibly updated Nspokes (even)
 %
@@ -48,10 +48,10 @@ end
 	
 % enforce Nspokes even
 clip_spoke = (mod(arg.full_dims(2), 2) == 1);
-arg.full_dims(2) = floor(arg.full_dims(2)/2)*2;
 data = data(:, :, 1:arg.full_dims(2), :);
 
-full_data = zeros(Nro, Nc, Nspokes, arg.full_dims(3));
+data = cat(4, data, zeros(Nro, Nc, Nspokes, arg.full_dims(3) - Nslice_PF));
+%full_data = zeros(Nro, Nc, Nspokes, arg.full_dims(3));
 for coil_ndx = 1:Nc
 	for spoke_block = 1:ceil(Nspokes/arg.block_size)
 		if spoke_block == ceil(Nspokes/arg.block_size)
@@ -60,8 +60,13 @@ for coil_ndx = 1:Nc
 			spoke_ndcs = (1:arg.block_size) + arg.block_size*(spoke_block - 1);
 		end
 		coil_data = squeeze(data(:, coil_ndx, spoke_ndcs, :));
-		[img, full_data(:,coil_ndx, spoke_ndcs,:)] = PF_3D(coil_data, arg.full_dims, ...
+		arg.full_dims(2) = numel(spoke_ndcs);
+		try
+		[~, data(:,coil_ndx, spoke_ndcs,:)] = PF_3D(coil_data, arg.full_dims, ...
 			'PF_location', [0 0 1], 'window_step3', 3);
+		catch
+		display('oops');keyboard;
+		end
 	end
 end
 
