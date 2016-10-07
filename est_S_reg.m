@@ -1,5 +1,5 @@
-function [sense_maps, bodycoil_mask] = est_S_reg(coil_images, varargin)
-%function [sense_maps, bodycoil_mask] = est_S_reg(coil_images, varargin)
+function [sense_maps, bodycoil_mask, bodycoil_sim] = est_S_reg(coil_images, varargin)
+%function [sense_maps, bodycoil_mask, bodycoil_sim] = est_S_reg(coil_images, varargin)
 % estimate sense maps from coil images
 % basically wrapper for Michael's method
 %

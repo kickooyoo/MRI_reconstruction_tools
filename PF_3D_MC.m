@@ -52,13 +52,17 @@ data = data(:, :, 1:arg.full_dims(2), :);
 
 data = cat(4, data, zeros(Nro, Nc, Nspokes, arg.full_dims(3) - Nslice_PF));
 %full_data = zeros(Nro, Nc, Nspokes, arg.full_dims(3));
+
+all_spoke_ndcs = [];
 for coil_ndx = 1:Nc
 	for spoke_block = 1:ceil(Nspokes/arg.block_size)
 		if spoke_block == ceil(Nspokes/arg.block_size)
-			spoke_ndcs = arg.block_size*(spoke_block - 1):Nspokes;
+			spoke_ndcs = arg.block_size*(spoke_block - 1) + 1:Nspokes;
 		else
 			spoke_ndcs = (1:arg.block_size) + arg.block_size*(spoke_block - 1);
 		end
+		if (mod(numel(spoke_ndcs),2) ~= 0), display('should be even for PF'), keyboard, end
+		all_spoke_ndcs = [all_spoke_ndcs spoke_ndcs];
 		coil_data = squeeze(data(:, coil_ndx, spoke_ndcs, :));
 		arg.full_dims(2) = numel(spoke_ndcs);
 		try
