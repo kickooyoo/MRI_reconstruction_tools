@@ -81,7 +81,7 @@ assert((mod(arg.Nf,1) == 0) && (arg.Nf <= arg.Nspokes), ...
 frame_members = trivial_datashare(arg);
 if isempty(Nyq)
 	display('empty Nyq argument, so no sharing across frames');
-	[ds_freqs, ds_data, Ns] = format_outputs(freqs, data, frame_members, arg);
+	[ds_freqs, ds_data, Ns, ds_dcf] = format_outputs(freqs, data, frame_members, arg);
 	return; 
 else
 	init_frame_members = frame_members;
@@ -152,7 +152,11 @@ function [ds_freqs, ds_data, Ns, ds_dcf] = format_outputs(freqs, data, frame_mem
 		if (arg.nargout == 5) && ~isempty(curr_freqs)
 			delta_ro = 1/size(frame_members,2); % normalized freq/Nro
 			tic
-			curr_dcf = calculate_voronoi_dcf(curr_freqs, delta_ro, arg);
+			if isempty(arg.Nyq)
+				curr_dcf = col(get_radial_dcf(arg.Nro, arg.Nspokes));
+			else
+				curr_dcf = calculate_voronoi_dcf(curr_freqs, delta_ro, arg);
+			end
 			toc_Voronoi = toc;
 			ds_dcf = [ds_dcf; curr_dcf];
 			display(sprintf('done with Voronoi for frame %d/%d in % sec', frame_ndx, arg.Nf, toc_Voronoi));

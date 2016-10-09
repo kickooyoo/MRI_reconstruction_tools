@@ -4,7 +4,14 @@ function dcf = calculate_voronoi_dcf(freqs, delta_ro, arg)
 % gives voronoi area for a set of frequency points, allows for duplicate
 % points (e.g. at DC)
 %
-% pad ring makes an evenly spaced ring but can create weird edge polygons
+% pad ring makes an evenly spaced ring but can create weird edge polygon
+%
+% inputs:
+%	freqs
+%	delta_ro
+%	arg (struct) required fields:
+%		max_radius
+% 
 arg.pad_ring = false;
 arg.pad_spokes = true;
 arg.check_polygon = false;
