@@ -80,7 +80,7 @@ for coil_ndx = 1:arg.Nc
         for frame_ndx = 1:arg.Nt
                 if ~isempty(arg.A{frame_ndx})
                         curr = col(s(:,:,:, frame_ndx, coil_ndx));
-                        curr_S = arg.A{frame_ndx}*(curr);
+                        curr_S = arg.A{frame_ndx}*curr(:);
                         coil_S = [coil_S; col(curr_S)];
                 end
         end

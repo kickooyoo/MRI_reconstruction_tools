@@ -39,6 +39,7 @@ arg.sampling = [];
 arg.smaps = sense_maps;
 arg.doboth = [true true];
 arg.small_mask = []; % save memory
+arg.verbose = false;
 arg = vararg_pair(arg, varargin);
 
 % do I need to know Nspokes for this?
@@ -130,7 +131,7 @@ if arg.doboth(2)
 else
 	idims = [arg.Nx arg.Ny arg.Nz arg.Nt arg.Nresp arg.Nc];
 end
-if (ndims(arg.small_mask) ~= 2) || ( ~all(size(arg.small_mask) == idims(1:2)))
+if ~isempty(arg.small_mask) && ((ndims(arg.small_mask) ~= 2) || ( ~all(size(arg.small_mask) == idims(1:2))))
 	display('dims of mask not right');
 	keyboard;
 end
@@ -151,6 +152,7 @@ if ~isempty(arg.small_mask)
 end
 y = [];
 for coil_ndx = 1:arg.Nc
+	if arg.verbose, tic, end
         coil_S = [];
         for resp_ndx = 1:arg.Nresp
                 for frame_ndx = 1:arg.Nt
@@ -169,6 +171,7 @@ for coil_ndx = 1:arg.Nc
                         end
                 end
         end
+	if arg.verbose, display(sprintf('done with %d/%d coils in %d sec', coil_ndx, arg.Nc, toc)), end
         y = [y coil_S];
 end
 
@@ -185,6 +188,7 @@ else
 end
 
 for resp_ndx = 1:arg.Nresp
+	if arg.verbose, tic, end
         for frame_ndx = 1:arg.Nt
                 small_s = zeros(arg.Nx, arg.Ny, arg.Nz, arg.Nc);
                 for coil_ndx = 1:arg.Nc
@@ -225,6 +229,7 @@ for resp_ndx = 1:arg.Nresp
 			x(:,:,:, frame_ndx, resp_ndx, :) = permute(small_s, [1 2 3 5 6 4]);
 		end
         end
+	if arg.verbose, display(sprintf('done with resp %d/%d in %d sec', resp_ndx, arg.Nresp, toc)), end
 end
 if ~isempty(arg.small_mask)
 	x = masker(x, arg.small_mask);

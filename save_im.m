@@ -13,7 +13,7 @@ arg = vararg_pair(arg, varargin);
 	
 
 print([path name], '-depsc');
-savefig([path name])
+savefig([path name '.fig'])
 display(sprintf('saved .fig and .eps named %s in %s', name, path))
 
 if arg.png

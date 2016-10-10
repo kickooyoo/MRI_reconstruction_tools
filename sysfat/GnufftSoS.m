@@ -72,7 +72,7 @@ else
 	S = [];
 	for z = 1:arg.Nz
 		curr = col(s(:,:,z));
-		curr_S = arg.A*curr;
+		curr_S = arg.A*curr(:);
 		S = [S; col(curr_S)];
 	end
 end

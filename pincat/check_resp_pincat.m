@@ -1,3 +1,4 @@
+%run in /y/mtle/resp_pincat/Nt30
 display('run in /y/mtle/resp_pincat/Nt30/');
 pincat_dir = '.';
 Nframes = 30;
