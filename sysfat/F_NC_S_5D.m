@@ -40,6 +40,7 @@ arg.smaps = sense_maps;
 arg.doboth = [true true];
 arg.small_mask = []; % save memory
 arg.verbose = false;
+arg.parfor = true;
 arg = vararg_pair(arg, varargin);
 
 % do I need to know Nspokes for this?
@@ -121,6 +122,18 @@ arg.A = A;
 arg.all_Ns = all_Ns;
 arg.cum_Ns = reshape(cumsum(col(arg.all_Ns)), arg.Nt, arg.Nresp);
 
+
+if(arg.attempt_par)
+	%if matlabpool('size') == 0
+	%matlabpool('open',Ncore);
+	%               pool = parpool(Ncore); % only in 2013b
+	%               en  
+	pool = gcp('nocreate');
+	if numel(pool) == 0
+		pool = parpool();
+	end 
+end
+
 if arg.doboth(1)
 	odims = [sum(col(arg.all_Ns))*arg.Nz arg.Nc];
 else
@@ -139,8 +152,13 @@ if ~isempty(arg.small_mask)
 	idims = [sum(col(arg.small_mask)) idims(3:end)];
 end
 
-FS = fatrix2('idim', idims, 'arg', arg,'odim', odims, 'forw', @F_NC_S_5D_forw, ...
-	'back', @F_NC_S_5D_back);
+if arg.parfor
+	FS = fatrix2('idim', idims, 'arg', arg,'odim', odims, 'forw', @F_NC_S_5D_forw_parfor, ...
+		'back', @F_NC_S_5D_back_parfor);
+else
+	FS = fatrix2('idim', idims, 'arg', arg,'odim', odims, 'forw', @F_NC_S_5D_forw, ...
+		'back', @F_NC_S_5D_back);
+end
 
 end
 
@@ -155,21 +173,52 @@ for coil_ndx = 1:arg.Nc
 	if arg.verbose, tic, end
         coil_S = [];
         for resp_ndx = 1:arg.Nresp
-                for frame_ndx = 1:arg.Nt
-                        if ~isempty(arg.A{frame_ndx, resp_ndx})
-            			if arg.doboth(2)
-		                	curr_s = x(:,:,:, frame_ndx, resp_ndx) .* arg.smaps(:,:,:, coil_ndx);
+		for frame_ndx = 1:arg.Nt
+			if ~isempty(arg.A{frame_ndx, resp_ndx})
+				if arg.doboth(2)
+					curr_s = x(:,:,:, frame_ndx, resp_ndx) .* arg.smaps(:,:,:, coil_ndx);
 				else
 					curr_s = x(:,:,:, frame_ndx, resp_ndx, coil_ndx);
 				end
 				if arg.doboth(1)
-                                	curr_S = arg.A{frame_ndx, resp_ndx}*col(curr_s);
+					curr_S = arg.A{frame_ndx, resp_ndx}*col(curr_s);
 				else
 					curr_S = col(curr_s);
 				end
-                                coil_S = [coil_S; col(curr_S)];
-                        end
-                end
+				coil_S = [coil_S; col(curr_S)];
+			end
+		end
+	end
+	if arg.verbose, display(sprintf('done with %d/%d coils in %d sec', coil_ndx, arg.Nc, toc)), end
+        y = [y coil_S];
+end
+end
+
+function y = F_NC_S_5D_forw_parfor(arg, x)
+
+if ~isempty(arg.small_mask)
+	x = embed(x, arg.small_mask);
+end
+y = [];
+for coil_ndx = 1:arg.Nc
+	if arg.verbose, tic, end
+        coil_S = [];
+	parfor resp_frame_ndx = 1:arg.Nresp*arg.Nt
+		resp_ndx = ceil(resp_frame_ndx / arg.Nt);
+		frame_ndx = mod(resp_frame_ndx, arg.Nt) + 1;
+		if ~isempty(arg.A{frame_ndx, resp_ndx})
+			if arg.doboth(2)
+				curr_s = x(:,:,:, frame_ndx, resp_ndx) .* arg.smaps(:,:,:, coil_ndx);
+			else
+				curr_s = x(:,:,:, frame_ndx, resp_ndx, coil_ndx);
+			end
+			if arg.doboth(1)
+				curr_S = arg.A{frame_ndx, resp_ndx}*col(curr_s);
+			else
+				curr_S = col(curr_s);
+			end
+			coil_S = [coil_S; col(curr_S)];
+		end
         end
 	if arg.verbose, display(sprintf('done with %d/%d coils in %d sec', coil_ndx, arg.Nc, toc)), end
         y = [y coil_S];
@@ -177,7 +226,6 @@ end
 
 
 end
-
 % x = F'S'y
 function x = F_NC_S_5D_back(arg, y)
 
@@ -188,48 +236,111 @@ else
 end
 
 for resp_ndx = 1:arg.Nresp
-	if arg.verbose, tic, end
         for frame_ndx = 1:arg.Nt
-                small_s = zeros(arg.Nx, arg.Ny, arg.Nz, arg.Nc);
-                for coil_ndx = 1:arg.Nc
-                        if ~isempty(arg.A{frame_ndx, resp_ndx})
-                                if (frame_ndx == 1) && (resp_ndx == 1)
-                                        curr_ndcs = 1:arg.Nz*arg.cum_Ns(frame_ndx, resp_ndx);
-                                elseif frame_ndx == 1
-                                        curr_ndcs = arg.Nz*arg.cum_Ns(arg.Nt, resp_ndx - 1) + 1: arg.Nz*arg.cum_Ns(frame_ndx, resp_ndx);
-                                else
-                                        try
-                                        curr_ndcs = arg.Nz*arg.cum_Ns(frame_ndx - 1, resp_ndx) + 1: arg.Nz*arg.cum_Ns(frame_ndx, resp_ndx);
-                                        catch
-                                                keyboard
-                                        end
-                                end
-                                if max(curr_ndcs) > size(y,1)
-                                        keyboard;
-                                end
-                                curr_S = y(curr_ndcs, coil_ndx);
-                                curr_A = arg.A{frame_ndx, resp_ndx};
-                                if ~all(size(curr_S) == curr_A.odim)
-                                        keyboard
-                                end
-				if arg.doboth(1)
-                                	curr_s = arg.A{frame_ndx, resp_ndx}'*curr_S;
+		if arg.verbose, tic, end
+		small_s = zeros(arg.Nx, arg.Ny, arg.Nz, arg.Nc);
+		for coil_ndx = 1:arg.Nc
+			if ~isempty(arg.A{frame_ndx, resp_ndx})
+				if (frame_ndx == 1) && (resp_ndx == 1)
+					curr_ndcs = 1:arg.Nz*arg.cum_Ns(frame_ndx, resp_ndx);
+				elseif frame_ndx == 1
+					curr_ndcs = arg.Nz*arg.cum_Ns(arg.Nt, resp_ndx - 1) + 1: arg.Nz*arg.cum_Ns(frame_ndx, resp_ndx);
 				else
-                                	curr_s = curr_S;
+					try
+					curr_ndcs = arg.Nz*arg.cum_Ns(frame_ndx - 1, resp_ndx) + 1: arg.Nz*arg.cum_Ns(frame_ndx, resp_ndx);
+					catch
+						keyboard
+					end
+				end
+				if max(curr_ndcs) > size(y,1)
+					keyboard;
+				end
+				curr_S = y(curr_ndcs, coil_ndx);
+				curr_A = arg.A{frame_ndx, resp_ndx};
+				if ~all(size(curr_S) == curr_A.odim)
+					keyboard
+				end
+				if arg.doboth(1)
+					curr_s = arg.A{frame_ndx, resp_ndx}'*curr_S;
+				else
+					curr_s = curr_S;
 				end
 				small_s(:,:,:, coil_ndx) = reshape(curr_s, arg.Nx, arg.Ny, arg.Nz);
-                        else
-                                small_s(:,:,:,coil_ndx) = zeros(arg.Nx, arg.Ny, arg.Nz);
-                        end
-                end
+			else
+				small_s(:,:,:,coil_ndx) = zeros(arg.Nx, arg.Ny, arg.Nz);
+			end
+		end
 		if arg.doboth(2)
 			small_prod = conj(arg.smaps) .* small_s;
 			x(:,:,:, frame_ndx, resp_ndx) = sum(small_prod, 4);
 		else
 			x(:,:,:, frame_ndx, resp_ndx, :) = permute(small_s, [1 2 3 5 6 4]);
 		end
-        end
+	end
 	if arg.verbose, display(sprintf('done with resp %d/%d in %d sec', resp_ndx, arg.Nresp, toc)), end
+end
+if ~isempty(arg.small_mask)
+	x = masker(x, arg.small_mask);
+end
+
+end
+
+
+
+
+function x = F_NC_S_5D_back_parfor(arg, y)
+
+if arg.doboth(2)
+	x = zeros(arg.Nx, arg.Ny, arg.Nz, arg.Nt, arg.Nresp, 'single');
+else
+	x = zeros(arg.Nx, arg.Ny, arg.Nz, arg.Nt, arg.Nresp, arg.Nc, 'single');
+end
+
+%for resp_ndx = 1:arg.Nresp
+%        for frame_ndx = 1:arg.Nt
+parfor resp_frame_ndx = 1:arg.Nresp*arg.Nt
+	resp_ndx = ceil(resp_frame_ndx / arg.Nt);
+	frame_ndx = mod(resp_frame_ndx, arg.Nt) + 1;
+	if arg.verbose, tic, end
+	small_s = zeros(arg.Nx, arg.Ny, arg.Nz, arg.Nc);
+	for coil_ndx = 1:arg.Nc
+		if ~isempty(arg.A{frame_ndx, resp_ndx})
+			if (frame_ndx == 1) && (resp_ndx == 1)
+				curr_ndcs = 1:arg.Nz*arg.cum_Ns(frame_ndx, resp_ndx);
+			elseif frame_ndx == 1
+				curr_ndcs = arg.Nz*arg.cum_Ns(arg.Nt, resp_ndx - 1) + 1: arg.Nz*arg.cum_Ns(frame_ndx, resp_ndx);
+			else
+				try
+				curr_ndcs = arg.Nz*arg.cum_Ns(frame_ndx - 1, resp_ndx) + 1: arg.Nz*arg.cum_Ns(frame_ndx, resp_ndx);
+				catch
+					keyboard
+				end
+			end
+			if max(curr_ndcs) > size(y,1)
+				keyboard;
+			end
+			curr_S = y(curr_ndcs, coil_ndx);
+			curr_A = arg.A{frame_ndx, resp_ndx};
+			if ~all(size(curr_S) == curr_A.odim)
+				keyboard
+			end
+			if arg.doboth(1)
+				curr_s = arg.A{frame_ndx, resp_ndx}'*curr_S;
+			else
+				curr_s = curr_S;
+			end
+			small_s(:,:,:, coil_ndx) = reshape(curr_s, arg.Nx, arg.Ny, arg.Nz);
+		else
+			small_s(:,:,:,coil_ndx) = zeros(arg.Nx, arg.Ny, arg.Nz);
+		end
+	end
+	if arg.doboth(2)
+		small_prod = conj(arg.smaps) .* small_s;
+		x(:,:,:, frame_ndx, resp_ndx) = sum(small_prod, 4);
+	else
+		x(:,:,:, frame_ndx, resp_ndx, :) = permute(small_s, [1 2 3 5 6 4]);
+	end
+	if arg.verbose, display(sprintf('done with resp/frame %d/%d in %d sec', resp_frame_ndx, arg.Nresp*arg.Nt, toc)), end
 end
 if ~isempty(arg.small_mask)
 	x = masker(x, arg.small_mask);

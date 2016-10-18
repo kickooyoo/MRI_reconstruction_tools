@@ -21,7 +21,9 @@ if arg.same_amp
 	for ii = 1:Nseries 
 		curr_max = max(abs(col(time_series(:,ii))));
 		time_series(:,ii) = time_series(:,ii)*amp/curr_max;
-		arg.labels{ii} = [arg.labels{ii} sprintf(', scale: %1.1e', curr_max)];
+		if ~isempty(arg.labels)
+			arg.labels{ii} = [arg.labels{ii} sprintf(', scale: %1.1e', curr_max)];
+		end
 	end
 end
 
