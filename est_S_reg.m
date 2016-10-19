@@ -60,13 +60,13 @@ if arg.check_bodycoil_mask
         display('check masks, bodycoil_mask = redo_bodycoil_mask(SoS, arg)?');
         keyboard;
 end
-bodycoil_sim = bodycoil_sim.*bodycoil_mask;
+%bodycoil_sim = bodycoil_sim.*bodycoil_mask;
 
 if ~all(size(bodycoil_sim) == size(coil_images(:,:,1)))
 	display('sizes of bodycoil_sim and coil_images do not match');
 	keyboard;
 end
-[sense_maps, sinit] = mri_sensemap_denoise(coil_images, 'bodycoil', bodycoil_sim, ...
+[sense_maps, sinit] = mri_sensemap_denoise(coil_images, 'bodycoil', bodycoil_sim .* bodycoil_mask, ...
 	'chol', 1, 'niter', 1, 'l2b', arg.l2b);
 if arg.figs_on
 	% build mask for display
