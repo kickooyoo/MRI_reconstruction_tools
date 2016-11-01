@@ -41,6 +41,7 @@ arg.doboth = [true true];
 arg.small_mask = []; % save memory
 arg.verbose = false;
 arg.pf = true;
+arg.Nworkers = 8;
 arg = vararg_pair(arg, varargin);
 
 if(arg.pf)
@@ -48,6 +49,9 @@ if(arg.pf)
 	if numel(pool) == 0
 		pool = parpool();
 	end 
+	if isempty(arg.Nworkers)
+		arg.Nworkers = pool.NumWorkers;
+	end
 end
 
 if ~isempty(arg.sampling) % apply sampling for user
@@ -133,7 +137,6 @@ if ~isempty(arg.small_mask)
 end
 
 % parfor will not slice fields of structs!
-%smaps = arg.smaps;
 A = arg.A;
 if arg.doboth(2)
 	x = reshape(x, arg.Nx, arg.Ny, arg.Nz, arg.Nt*arg.Nresp);
@@ -141,9 +144,14 @@ else
 	x = reshape(x, arg.Nx, arg.Ny, arg.Nz, arg.Nt*arg.Nresp, arg.Nc);
 end
 
+% don't want to duplicate smpas to each worker...
+% Nc Nx Ny Nz Nw 
+% but if I explicitly construct Sx first, then I have ...
+% Nx Ny Nz Nt Nr Nc
+% Nw vs. Nt*Nr
+
 % concern: need coil as 2nd dim of y
-parfor (frame_resp_ndx = 1:arg.Nresp*arg.Nt, arg.Nresp*arg.Nt)
-	display(sprintf('in par thread %d', frame_resp_ndx))
+parfor (frame_resp_ndx = 1:arg.Nresp*arg.Nt, arg.Nworkers)
 	if ~isempty(A{frame_resp_ndx})
 		if arg.doboth(2)
 			curr_s = repmat(squeeze(x(:,:,:,frame_resp_ndx)), [1 1 1 arg.Nc]).*arg.smaps;
@@ -159,7 +167,6 @@ parfor (frame_resp_ndx = 1:arg.Nresp*arg.Nt, arg.Nresp*arg.Nt)
 		end
 		curr_S_pf{frame_resp_ndx} = curr_s; 			
 	end
-	display(sprintf('done w par thread %d', frame_resp_ndx))
 end
 
 % construct y because had to save slices over frame_resp_ndx
@@ -233,8 +240,9 @@ A = arg.A;
 if ~arg.doboth(1)
 	y = reshape(y, arg.Nx, arg.Ny, arg.Nz, arg.Nt*arg.Nresp, arg.Nc);
 end
-parfor (frame_resp_ndx = 1:arg.Nresp*arg.Nt, arg.Nresp*arg.Nt)
-	display(sprintf('in par thread %d', frame_resp_ndx))
+keyboard
+if 1
+parfor (frame_resp_ndx = 1:arg.Nresp*arg.Nt, 2)%arg.Nworkers)
 	if ~isempty(A{frame_resp_ndx})
 		if arg.doboth(1)
 			if (frame_resp_ndx == 1)
@@ -246,10 +254,6 @@ parfor (frame_resp_ndx = 1:arg.Nresp*arg.Nt, arg.Nresp*arg.Nt)
 				keyboard;
 			end
 			curr_S = y(curr_ndcs, :);
-			curr_A = A{frame_resp_ndx};
-			if ~all(size(curr_S) == curr_A.odim)
-				keyboard
-			end
 			% induce 'does_many' over Nz, Nc
 			curr_s = A{frame_resp_ndx}'*reshape(curr_S, size(curr_S,1)/arg.Nz, arg.Nz*arg.Nc);
 			% output [Nx Ny Nz*Nc]
@@ -261,11 +265,16 @@ parfor (frame_resp_ndx = 1:arg.Nresp*arg.Nt, arg.Nresp*arg.Nt)
 		small_s = zeros(arg.Nx, arg.Ny, arg.Nz, arg.Nc);
 	end
 	small_s_pf(:,:,:,frame_resp_ndx,:) = small_s;
-	display(sprintf('done w par thread %d', frame_resp_ndx))
+end
+else
+	small_s_pf = zeros(arg.Nx, arg.Ny, arg.Nz, arg.Nt*arg.Nresp, arg.Nc);
 end
 if arg.doboth(2)
-	big_smaps = repmat(permute(conj(arg.smaps), [1 2 3 5 4]), [1 1 1 arg.Nresp*arg.Nt 1]);
-	x = reshape(big_smaps .* small_s_pf, arg.Nx, arg.Ny, arg.Nz, arg.Nt, arg.Nresp, arg.Nc);
+	% for loop to avoid duplicating memory hog smaps
+	for frame_resp_ndx = 1:arg.Nresp*arg.Nt
+		x(:,:,:,frame_resp_ndx) = sum(conj(arg.smaps) .* squeeze(small_s_pf(:,:,:,frame_resp_ndx,:)),4);
+	end
+	x = reshape(x, arg.Nx, arg.Ny, arg.Nz, arg.Nt, arg.Nresp);
 else	
 	x = reshape(small_s_pf, arg.Nx, arg.Ny, arg.Nz, arg.Nt, arg.Nresp, arg.Nc);
 end
