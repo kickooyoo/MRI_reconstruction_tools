@@ -38,10 +38,11 @@ arg.Nr = arg.Nx * arg.Ny * arg.Nz;
 arg.sampling = [];
 arg.smaps = sense_maps;
 arg.doboth = [true true];
-arg.small_mask = []; % save memory
+arg.small_mask = []; % for vectorized, masked x
 arg.verbose = false;
 arg.pf = true;
-arg.Nworkers = 8;
+arg.Nworkers = [];
+arg.small_imask = []; % implicit masker on image x
 arg = vararg_pair(arg, varargin);
 
 if(arg.pf)
@@ -104,6 +105,13 @@ function y = F_NC_S_5D_forw(arg, x)
 if ~isempty(arg.small_mask)
 	x = embed(x, arg.small_mask);
 end
+%if ~isempty(arg.small_imask)
+%	x = masker(x, arg.small_imask);
+%	smaps = masker(arg.smaps, arg.small_imask);
+%else
+%	x = reshape(x, arg.Nx*arg.Ny, arg.Nz, arg.Nt, arg.Nresp);
+%	smaps = reshape(arg.smaps, arg.Nx*arg.Ny, arg.Nz, arg.Nc); 
+%end
 y = [];
 for coil_ndx = 1:arg.Nc
 	if arg.verbose, tic, end
@@ -117,7 +125,7 @@ for coil_ndx = 1:arg.Nc
 					curr_s = x(:,:,:, frame_ndx, resp_ndx, coil_ndx);
 				end
 				if arg.doboth(1)
-					curr_S = arg.A{frame_ndx, resp_ndx}*col(curr_s);
+					curr_S = arg.A{frame_ndx, resp_ndx}*curr_s;
 				else
 					curr_S = col(curr_s);
 				end
@@ -149,6 +157,9 @@ end
 % but if I explicitly construct Sx first, then I have ...
 % Nx Ny Nz Nt Nr Nc
 % Nw vs. Nt*Nr
+ 
+% outside for loop over coil
+% is there any way to tell parfor to copy by value
 
 % concern: need coil as 2nd dim of y
 parfor (frame_resp_ndx = 1:arg.Nresp*arg.Nt, arg.Nworkers)
@@ -203,12 +214,8 @@ for resp_ndx = 1:arg.Nresp
 					keyboard;
 				end
 				curr_S = y(curr_ndcs, :); 
-				curr_A = arg.A{frame_ndx, resp_ndx};
-				if ~all(size(curr_S) == curr_A.odim)
-					keyboard
-				end
 				% induce 'does_many' over Nz, Nc
-				curr_s = arg.A{frame_resp_ndx}'*reshape(curr_S, size(curr_S,1)/arg.Nz, arg.Nz*arg.Nc);
+				curr_s = arg.A{frame_ndx, resp_ndx}'*reshape(curr_S, size(curr_S,1)/arg.Nz, arg.Nz*arg.Nc);
 				% output [Nx Ny Nz*Nc]
 			else
 				curr_s =  y(:,:,:, frame_ndx, resp_ndx,:);
@@ -240,9 +247,8 @@ A = arg.A;
 if ~arg.doboth(1)
 	y = reshape(y, arg.Nx, arg.Ny, arg.Nz, arg.Nt*arg.Nresp, arg.Nc);
 end
-keyboard
 if 1
-parfor (frame_resp_ndx = 1:arg.Nresp*arg.Nt, 2)%arg.Nworkers)
+parfor (frame_resp_ndx = 1:arg.Nresp*arg.Nt, arg.Nworkers/2)
 	if ~isempty(A{frame_resp_ndx})
 		if arg.doboth(1)
 			if (frame_resp_ndx == 1)
@@ -294,7 +300,7 @@ function [A, all_Ns] = construct_all_nufft(freqs, arg)
 		end
 		all_Ns(:,resp_ndx) = curr_Ns;
 		curr_freqs = freqs{resp_ndx};
-		if numel(curr_freqs) ~= sum(curr_Ns)
+		if numel(curr_freqs) ~= sum(curr_Ns)*arg.Nz
 			display('k and Ns mismatch');
 			keyboard
 		end
@@ -315,7 +321,7 @@ function [A, all_Ns] = construct_all_nufft(freqs, arg)
 				om = [real(col(k)) imag(col(k))]*2*pi;
 				Jd = [6 6];
 				% rely on does_many for Nz and Nc
-				A{frame_resp, resp_ndx} = Gnufft({om, dims, Jd, ceil(dims*1.5), max(floor(dims/2),1), 'table', 2^10, 'minmax:kb'});
+				A{frame_ndx, resp_ndx} = Gnufft({om, dims, Jd, ceil(dims*1.5), max(floor(dims/2),1), 'table', 2^10, 'minmax:kb'});
 			end
 		end
 	end
@@ -337,7 +343,7 @@ function [A, all_Ns] = construct_all_nufft_pf(freqs, arg)
 		end
 		all_Ns(:,resp_ndx) = curr_Ns;
 		curr_freqs = freqs{resp_ndx};
-		if numel(curr_freqs) ~= sum(curr_Ns)
+		if numel(curr_freqs) ~= sum(curr_Ns)*arg.Nz
 			display('k and Ns mismatch');
 			keyboard
 		end
@@ -357,7 +363,11 @@ function [A, all_Ns] = construct_all_nufft_pf(freqs, arg)
 			om = [real(col(k)) imag(col(k))]*2*pi;
 			Jd = [6 6];
                         % rely on 'does_many' option for Nz and Nc
-			A{frame_resp_ndx} = Gnufft({om, dims, Jd, ceil(dims*1.5), max(floor(dims/2),1), 'table', 2^10, 'minmax:kb'});
+			if ~isempty(arg.small_imask)
+				A{frame_resp_ndx} = Gnufft({om, dims, Jd, ceil(dims*1.5), max(floor(dims/2),1), 'table', 2^10, 'minmax:kb', 'imask', arg.small_imask});
+			else
+				A{frame_resp_ndx} = Gnufft({om, dims, Jd, ceil(dims*1.5), max(floor(dims/2),1), 'table', 2^10, 'minmax:kb'});
+			end
 		end
 	end
 	arg.all_Ns = all_Ns;
