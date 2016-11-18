@@ -7,7 +7,7 @@ function FS = F_NC_S_5D(freqs, sense_maps, Ns, Nro, Nt, Nresp, varargin)
 % | 	freqs ([1 Nresp] cell of [Nro*Nspokes(resp)*Nslice] complex double)
 % |     sense_maps [Nx Ny Nz Nc]
 % |	Ns ([1 Nresp] cell of [1 Nt] int)
-% |		DOES THIS INCLUDE NRO AND NSLICE FACTOR??
+% |		number of slices associated with Nt, Nresp (not including Nro, Nslice factor)
 % | varargin:
 % | 	list_mode
 % |		output size: [sum(Ns) Nc]
@@ -25,7 +25,8 @@ function FS = F_NC_S_5D(freqs, sense_maps, Ns, Nro, Nt, Nresp, varargin)
 % | output of fatrix is single column of samples
 % | 	ordered:
 % | 		[readout, spoke, slice, coil]
-% | 
+% | input of fatrix is 
+% |	 	[Nx Ny Nz Nt Nresp]
 arg.Ns = Ns;
 arg.Nro = Nro;
 arg.Nt = Nt;
@@ -43,16 +44,19 @@ arg.verbose = false;
 arg.pf = true;
 arg.Nworkers = [];
 arg.small_imask = []; % implicit masker on image x
+arg.debug = 0;
 arg = vararg_pair(arg, varargin);
 
 if(arg.pf)
 	pool = gcp('nocreate');
 	if numel(pool) == 0
-		pool = parpool();
+		if isempty(arg.Nworkers)
+			pool = parpool();
+			arg.Nworkers = pool.NumWorkers;
+		else
+			pool = parpool(arg.Nworkers);
+		end
 	end 
-	if isempty(arg.Nworkers)
-		arg.Nworkers = pool.NumWorkers;
-	end
 end
 
 if ~isempty(arg.sampling) % apply sampling for user
@@ -72,7 +76,7 @@ end
 arg.A = A;
 
 if arg.doboth(1)
-	odims = [sum(col(arg.all_Ns))*arg.Nz arg.Nc];
+	odims = [arg.Nro arg.cum_Ns(end) arg.Nz arg.Nc];
 else
 	odims = [arg.Nx arg.Ny arg.Nz arg.Nt arg.Nresp arg.Nc];
 end
@@ -99,9 +103,12 @@ end
 
 end
 
+% ---------------------------------------------------------------------------------------------------------
 % y = FSx
-function y = F_NC_S_5D_forw(arg, x)
-
+% x: [Nx Ny Nz Nt Nresp]
+% Sx: [Nx Ny Nz Nt Nresp Nc]
+% y: [Nro Nspokes Nslice Nc]
+function y = F_NC_S_5D_forw(arg, x) %----------------------------------------
 if ~isempty(arg.small_mask)
 	x = embed(x, arg.small_mask);
 end
@@ -112,10 +119,9 @@ end
 %	x = reshape(x, arg.Nx*arg.Ny, arg.Nz, arg.Nt, arg.Nresp);
 %	smaps = reshape(arg.smaps, arg.Nx*arg.Ny, arg.Nz, arg.Nc); 
 %end
-y = [];
+y = zeros(arg.Nro, arg.cum_Ns(end), arg.Nz, arg.Nc, 'single');
 for coil_ndx = 1:arg.Nc
 	if arg.verbose, tic, end
-        coil_S = [];
         for resp_ndx = 1:arg.Nresp
 		for frame_ndx = 1:arg.Nt
 			if ~isempty(arg.A{frame_ndx, resp_ndx})
@@ -126,19 +132,27 @@ for coil_ndx = 1:arg.Nc
 				end
 				if arg.doboth(1)
 					curr_S = arg.A{frame_ndx, resp_ndx}*curr_s;
+					if arg.debug && all([coil_ndx frame_ndx resp_ndx] == [1 1 1])
+						tmp = reshape(arg.A{frame_ndx, resp_ndx}'*curr_S, size(curr_s));
+						subplot(1,3,1); im('mid3', curr_s);
+						subplot(1,3,2); im('mid3', tmp);
+						drawnow;
+						%keyboard
+					end
 				else
 					curr_S = col(curr_s);
 				end
-				coil_S = [coil_S; col(curr_S)];
+				spoke_ndcs = get_spoke_ndcs([frame_ndx resp_ndx], arg.cum_Ns, arg.Nt);
+				y(:,spoke_ndcs,:,coil_ndx) = reshape(curr_S, [arg.Nro numel(spoke_ndcs) arg.Nz]);
 			end
 		end
 	end
 	if arg.verbose, display(sprintf('done with %d/%d coils in %d sec', coil_ndx, arg.Nc, toc)), end
-        y = [y coil_S];
 end
 end
 
-function y = F_NC_S_5D_forw_pf(arg, x)
+% ---------------------------------------------------------------------------------------------------------
+function y = F_NC_S_5D_forw_pf(arg, x) % ------------------------------------------
 
 if ~isempty(arg.small_mask)
 	x = embed(x, arg.small_mask);
@@ -146,51 +160,73 @@ end
 
 % parfor will not slice fields of structs!
 A = arg.A;
+Nx = arg.Nx;
+Ny = arg.Ny;
+Nz = arg.Nz;
+Nc = arg.Nc;
+Nt = arg.Nt;
+Nresp = arg.Nresp;
+doboth = arg.doboth;
+smaps = arg.smaps;
+
 if arg.doboth(2)
 	x = reshape(x, arg.Nx, arg.Ny, arg.Nz, arg.Nt*arg.Nresp);
 else
 	x = reshape(x, arg.Nx, arg.Ny, arg.Nz, arg.Nt*arg.Nresp, arg.Nc);
 end
 
-% don't want to duplicate smpas to each worker...
+% don't want to duplicate smaps to each worker...
 % Nc Nx Ny Nz Nw 
 % but if I explicitly construct Sx first, then I have ...
 % Nx Ny Nz Nt Nr Nc
 % Nw vs. Nt*Nr
- 
 % outside for loop over coil
-% is there any way to tell parfor to copy by value
 
 % concern: need coil as 2nd dim of y
+
+if 0
+if doboth(2)
+	parfor (coil_ndx = 1:arg.Nc, arg.Nworkers)
+		curr_s(:,:,:,:,coil_ndx) = x.*repmat(smaps(:,:,:,coil_ndx), [1 1 1 Nt*Nresp]);
+	end
+else
+	curr_s = x(:,:,:, frame_resp_ndx, :);
+end
+end
+
 parfor (frame_resp_ndx = 1:arg.Nresp*arg.Nt, arg.Nworkers)
 	if ~isempty(A{frame_resp_ndx})
-		if arg.doboth(2)
-			curr_s = repmat(squeeze(x(:,:,:,frame_resp_ndx)), [1 1 1 arg.Nc]).*arg.smaps;
+		if doboth(2)
+			curr_s = repmat(squeeze(x(:,:,:,frame_resp_ndx)), [1 1 1 Nc]).*arg.smaps;
 		else
 			curr_s = x(:,:,:, frame_resp_ndx, :);
 		end
-		if arg.doboth(1)
+		if doboth(1)
 			% reshape to use does_many over Nz, Nc
-			curr_s = A{frame_resp_ndx}*reshape(curr_s, arg.Nx, arg.Ny, arg.Nz*arg.Nc);
+			curr_s = A{frame_resp_ndx}*reshape(curr_s, Nx, Ny, Nz*Nc);
 			% curr_s  [arg.Ns{resp_ndx}(frame_ndx) Nz*Nc]
 			% where arg.Nx{resp_ndx}(frame_ndx) is Nro*Nspokes of frame, resp
-			curr_s = reshape(curr_s, size(curr_s, 1)*arg.Nz, arg.Nc);
+			curr_s = reshape(curr_s, size(curr_s, 1)*Nz, Nc);
 		end
 		curr_S_pf{frame_resp_ndx} = curr_s; 			
 	end
 end
 
 % construct y because had to save slices over frame_resp_ndx
-y = [];
 for frame_resp_ndx = 1:arg.Nresp*arg.Nt
-	y = [y; curr_S_pf{frame_resp_ndx}];
+	spoke_ndcs = get_spoke_ndcs(frame_resp_ndx, arg.cum_Ns, arg.Nt);
+	y(:,spoke_ndcs,:,:) = reshape(curr_S_pf{frame_resp_ndx}, arg.Nro, numel(spoke_ndcs), arg.Nz, arg.Nc);
 end
 
 end
 
 
+% ---------------------------------------------------------------------------------------------------------
 % x = F'S'y
-function x = F_NC_S_5D_back(arg, y)
+% y: [Nro Nspokes Nslice Nc]
+% S'y: [Nro Nspokes Nslice]
+% x: [Nx Ny Nz Nt Nresp]
+function x = F_NC_S_5D_back(arg, y) % --------------------------------------------------------------
 
 if arg.doboth(2)
 	x = zeros(arg.Nx, arg.Ny, arg.Nz, arg.Nt, arg.Nresp, 'single');
@@ -203,24 +239,23 @@ for resp_ndx = 1:arg.Nresp
 		if arg.verbose, tic, end
 		if ~isempty(arg.A{frame_ndx, resp_ndx})
 			if arg.doboth(1)
-				if (frame_ndx == 1) && (resp_ndx == 1)
-					curr_ndcs = 1:arg.Nz*arg.cum_Ns(frame_ndx, resp_ndx);
-				elseif frame_ndx == 1
-					curr_ndcs = arg.Nz*arg.cum_Ns(arg.Nt, resp_ndx - 1) + 1: arg.Nz*arg.cum_Ns(frame_ndx, resp_ndx);
-				else
-					curr_ndcs = arg.Nz*arg.cum_Ns(frame_ndx - 1, resp_ndx) + 1: arg.Nz*arg.cum_Ns(frame_ndx, resp_ndx);
-				end
-				if max(curr_ndcs) > size(y,1)
+				spoke_ndcs = get_spoke_ndcs([frame_ndx resp_ndx], arg.cum_Ns, arg.Nt);
+				if max(spoke_ndcs) > arg.cum_Ns(end) % == Nspokes
 					keyboard;
 				end
-				curr_S = y(curr_ndcs, :); 
+				curr_S = y(:, spoke_ndcs, :, :); 
 				% induce 'does_many' over Nz, Nc
-				curr_s = arg.A{frame_ndx, resp_ndx}'*reshape(curr_S, size(curr_S,1)/arg.Nz, arg.Nz*arg.Nc);
+				curr_s = arg.A{frame_ndx, resp_ndx}'*reshape(curr_S, arg.Nro*arg.all_Ns(frame_ndx, resp_ndx), arg.Nz*arg.Nc);
 				% output [Nx Ny Nz*Nc]
 			else
 				curr_s =  y(:,:,:, frame_ndx, resp_ndx,:);
 			end
 			small_s = reshape(curr_s, arg.Nx, arg.Ny, arg.Nz, arg.Nc);
+			if arg.debug && all([frame_ndx resp_ndx] == [1 1])
+				subplot(1,3,3); im('mid3', small_s(:,:,:,1));
+				drawnow;
+				%keyboard
+			end
 		else
 			small_s = zeros(arg.Nx, arg.Ny, arg.Nz, arg.Nc);
 		end
@@ -240,40 +275,38 @@ end
 end
 
 
-function x = F_NC_S_5D_back_pf(arg, y)
+% ---------------------------------------------------------------------------------------------------------
+function x = F_NC_S_5D_back_pf(arg, y) % --------------------------------------------------
 
 % parfor will not slice fields of structs!
 A = arg.A;
+cum_Ns = arg.cum_Ns;
+Nro = arg.Nro;
+Nt = arg.Nt;
+Nx = arg.Nx;
+Ny = arg.Ny;
+Nz = arg.Nz;
+Nc = arg.Nc;
+doboth = arg.doboth;
 if ~arg.doboth(1)
 	y = reshape(y, arg.Nx, arg.Ny, arg.Nz, arg.Nt*arg.Nresp, arg.Nc);
 end
-if 1
-parfor (frame_resp_ndx = 1:arg.Nresp*arg.Nt, arg.Nworkers/2)
+parfor (frame_resp_ndx = 1:arg.Nresp*arg.Nt, arg.Nworkers)
 	if ~isempty(A{frame_resp_ndx})
-		if arg.doboth(1)
-			if (frame_resp_ndx == 1)
-				curr_ndcs = 1:arg.Nz*arg.cum_Ns(frame_resp_ndx);
-			else
-				curr_ndcs = arg.Nz*arg.cum_Ns(frame_resp_ndx - 1) + 1: arg.Nz*arg.cum_Ns(frame_resp_ndx);
-			end
-			if max(curr_ndcs) > size(y,1)
-				keyboard;
-			end
-			curr_S = y(curr_ndcs, :);
+		if doboth(1)
+			spoke_ndcs = get_spoke_ndcs(frame_resp_ndx, cum_Ns, Nt);
+			curr_S = y(:, spoke_ndcs, :, :);
 			% induce 'does_many' over Nz, Nc
-			curr_s = A{frame_resp_ndx}'*reshape(curr_S, size(curr_S,1)/arg.Nz, arg.Nz*arg.Nc);
+			curr_s = A{frame_resp_ndx}'*reshape(curr_S, Nro*numel(spoke_ndcs), Nz*Nc);
 			% output [Nx Ny Nz*Nc]
 		else
 			curr_s = y(:,:,:, frame_resp_ndx,:);
 		end
 		small_s = reshape(curr_s, arg.Nx, arg.Ny, arg.Nz, arg.Nc);
 	else
-		small_s = zeros(arg.Nx, arg.Ny, arg.Nz, arg.Nc);
+		small_s = zeros(Nx, Ny, Nz, Nc);
 	end
 	small_s_pf(:,:,:,frame_resp_ndx,:) = small_s;
-end
-else
-	small_s_pf = zeros(arg.Nx, arg.Ny, arg.Nz, arg.Nt*arg.Nresp, arg.Nc);
 end
 if arg.doboth(2)
 	% for loop to avoid duplicating memory hog smaps
@@ -290,6 +323,32 @@ end
 
 end
 
+% ---------------------------------------------------------------------------------------------------------
+function ndcs = get_spoke_ndcs(frame_resp_ndx, cum_Ns, Nt)
+if length(frame_resp_ndx) == 1 % frame_resp_ndx
+	if (frame_resp_ndx == 1)
+		ndcs = 1:cum_Ns(frame_resp_ndx);
+	else
+		ndcs = cum_Ns(frame_resp_ndx - 1) + 1: cum_Ns(frame_resp_ndx);
+	end
+elseif length(frame_resp_ndx) == 2 % frame_ndx, resp_ndx
+	frame_ndx = frame_resp_ndx(1);
+	resp_ndx = frame_resp_ndx(2);
+	if (frame_ndx == 1) && (resp_ndx == 1)
+		ndcs = 1:cum_Ns(frame_ndx, resp_ndx);
+	elseif frame_ndx == 1
+		ndcs = cum_Ns(Nt, resp_ndx - 1) + 1: cum_Ns(frame_ndx, resp_ndx);
+	else
+		ndcs = cum_Ns(frame_ndx - 1, resp_ndx) + 1: cum_Ns(frame_ndx, resp_ndx);
+	end
+else
+	display('invalid use of get_spoke_ndcs');
+	keyboard
+end
+
+end
+
+% ---------------------------------------------------------------------------------------------------------
 function [A, all_Ns] = construct_all_nufft(freqs, arg)
 
 	for resp_ndx = 1:arg.Nresp
@@ -300,7 +359,7 @@ function [A, all_Ns] = construct_all_nufft(freqs, arg)
 		end
 		all_Ns(:,resp_ndx) = curr_Ns;
 		curr_freqs = freqs{resp_ndx};
-		if numel(curr_freqs) ~= sum(curr_Ns)*arg.Nz
+		if numel(curr_freqs) ~= sum(curr_Ns)*arg.Nz*arg.Nro
 			display('k and Ns mismatch');
 			keyboard
 		end
@@ -310,9 +369,9 @@ function [A, all_Ns] = construct_all_nufft(freqs, arg)
 			else
 				A{frame_ndx, resp_ndx} = 1;
 				if frame_ndx == 1
-					curr_ndcs = 1:curr_Ns(1);
+					curr_ndcs = 1:arg.Nro*curr_Ns(1);
 				else
-					curr_ndcs = sum(curr_Ns(1:frame_ndx - 1)) + 1 : sum(curr_Ns(1:frame_ndx));
+					curr_ndcs = sum(arg.Nro*curr_Ns(1:frame_ndx - 1)) + 1 : sum(arg.Nro*curr_Ns(1:frame_ndx));
 				end
 				%A{frame_ndx, resp_ndx} = GnufftSoS(curr_freqs(curr_ndcs), curr_Ns(frame_ndx), arg.Nx, arg.Ny, arg.Nz);
 				% default: 'table', 2^10, 'minmax:kb'
@@ -329,6 +388,7 @@ function [A, all_Ns] = construct_all_nufft(freqs, arg)
 
 end
 
+% ---------------------------------------------------------------------------------------------------------
 
 function [A, all_Ns] = construct_all_nufft_pf(freqs, arg)
 
@@ -343,7 +403,7 @@ function [A, all_Ns] = construct_all_nufft_pf(freqs, arg)
 		end
 		all_Ns(:,resp_ndx) = curr_Ns;
 		curr_freqs = freqs{resp_ndx};
-		if numel(curr_freqs) ~= sum(curr_Ns)*arg.Nz
+		if numel(curr_freqs) ~= sum(curr_Ns)*arg.Nz*arg.Nro
 			display('k and Ns mismatch');
 			keyboard
 		end
@@ -352,9 +412,9 @@ function [A, all_Ns] = construct_all_nufft_pf(freqs, arg)
 		else
 			A{frame_resp_ndx} = 1;
 			if frame_ndx == 1
-				curr_ndcs = 1:curr_Ns(1);
+				curr_ndcs = 1:arg.Nro*curr_Ns(1);
 			else
-				curr_ndcs = sum(curr_Ns(1:frame_ndx - 1)) + 1 : sum(curr_Ns(1:frame_ndx));
+				curr_ndcs = sum(arg.Nro*curr_Ns(1:frame_ndx - 1)) + 1 : sum(arg.Nro*curr_Ns(1:frame_ndx));
 			end
 			%A{frame_resp_ndx} = GnufftSoS(curr_freqs(curr_ndcs), curr_Ns(frame_ndx), arg.Nx, arg.Ny, arg.Nz);
 			% default: 'table', 2^10, 'minmax:kb'
@@ -374,6 +434,7 @@ function [A, all_Ns] = construct_all_nufft_pf(freqs, arg)
 
 end
 
+% ---------------------------------------------------------------------------------------------------------
 function [freqs, Ns] = apply_sampling(freqs, arg)
 
 % do I need to know Nspokes for this?
