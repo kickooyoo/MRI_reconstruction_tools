@@ -3,7 +3,7 @@
 %|
 %| Construct C1 object that can compute C1 * x and the adjoint C1' * d
 %| for a "finite differences" matrix C for roughness penalty regularization.
-%| This "stacks up" multiple Cdiff1() objects, e.g., akin to using vertcat(),
+%| This "stacks up" multiple Cdiff1_ml() objects, e.g., akin to using vertcat(),
 %| for possible internal use by roughness penalty objects like Reg1().
 %|
 %| One can use this for "bilateral total variation (TV)" regularization.
@@ -22,14 +22,14 @@
 %|			if empty, infer from 'mask' option
 %|
 %| options
-%|	'type_diff'	see Cdiff1.m (default: '' defers to Cdiff1)
+%|	'type_diff'	see Cdiff1_ml.m (default: '' defers to Cdiff1_ml)
 %|	'offsets' [M]	offsets to "M" neighbors; see penalty_offsets()
 %|	'order'	1 or 2	1st- or 2nd-order differences.  (default: 1)
 %|	'mask'	[(N)]	logical support
-%|	'class'	''	'fatrix2' or 'Fatrix' or '' (default: defer to Cdiff1)
+%|	'class'	''	'fatrix2' or 'Fatrix' or '' (default: defer to Cdiff1_ml)
 %|	'odim_squeeze' 1|0	if M=1 then use odim = [(N)] not [(N) M]
 %|				default: 1
-%|	'append' Cdiff1-like fatrix, appended at end of C
+%|	'append' Cdiff1_ml-like fatrix, appended at end of C
 %| out
 %|	C1	[*N * M, np]	fatrix2 or Fatrix object; np = sum(mask(:))
 %|				also works on arrays: [(N) (L)] -> [(N) M (L)]
@@ -48,8 +48,8 @@ arg.offsets = [];
 arg.mask = [];
 arg.order = 1;
 arg.odim_squeeze = true;
-arg.append = {};
-arg.class = ''; % defer to Cdiff1
+arg.Crd = {};
+arg.class = ''; % defer to Cdiff1_ml
 
 % parse optional name/value pairs
 arg = vararg_pair(arg, varargin);
@@ -76,12 +76,21 @@ end
 % offsets to neighbors
 arg.offsets = penalty_offsets(arg.offsets, isize);
 MM = length(arg.offsets);
+if ~isempty(arg.Crd)
+	if arg.Crd.arg.does_many > 1
+		augMM = MM + (~isempty(arg.Crd))*arg.Crd.odim(end - 1);
+	else
+		augMM = MM + (~isempty(arg.Crd))*arg.Crd.odim(end);
+	end
+else
+	augMM = MM;
+end
 
 % sparse matrix case
 if streq(arg.type_diff, 'spmat')
 	ob = [];
 	for mm=1:MM
-		ob = [ob; Cdiff1(isize, 'type_diff', arg.type_diff, ...
+		ob = [ob; Cdiff1_ml(isize, 'type_diff', arg.type_diff, ...
 			'offset', arg.offsets(mm), 'order', arg.order)];
 	end
 	if ~isempty(arg.mask)
@@ -93,13 +102,12 @@ else
 	arg.isize = isize;
 	arg.Cc = cell(MM,1);
 	for mm=1:MM
-		arg.Cc{mm} = Cdiff1(isize, 'type_diff', arg.type_diff, ...
+		arg.Cc{mm} = Cdiff1_ml(isize, 'type_diff', arg.type_diff, ...
 			'class', arg.class, ...
 			'offset', arg.offsets(mm), 'order', arg.order);
 	end
-	if ~isempty(arg.append)
-		arg.Cc{MM+1} = arg.append;
-		MM = MM + arg.append.odim(end);
+	if ~isempty(arg.Crd)
+		arg.Cc{MM+1} = arg.Crd;
 	end
 
 	if isempty(arg.mask)
@@ -107,18 +115,18 @@ else
 	end
 
 	if MM >= 1
-		arg.class = class(arg.Cc{1}); % trick: defer to Cdiff1
+		arg.class = class(arg.Cc{1}); % trick: defer to Cdiff1_ml
 	else % for null case
 %		arg.class = 'fatrix2'; % todo: this fails for Reg1 test
 		arg.class = 'Fatrix';
 	end
 
 	switch arg.class
-	case 'fatrix2' % cannot use vertcat because Cdiff1 lacks mask
+	case 'fatrix2' % cannot use vertcat because Cdiff1_ml lacks mask
 		if arg.odim_squeeze && MM == 1
 			odim = [arg.isize];
 		else
-			odim = [arg.isize MM];
+			odim = [arg.isize augMM];
 		end
 		ob = fatrix2('arg', arg, 'odim', odim, ...
 			'forw', @Cdiffs_ml_forw, ...
@@ -127,7 +135,7 @@ else
 	case 'Fatrix'
 		arg.np = sum(arg.mask(:));
 
-		dim = [prod(isize)*MM arg.np];
+		dim = [prod(isize)*augMM arg.np];
 		ob = Fatrix(dim, arg, 'caller', 'Cdiffs_ml', ...
 			'forw', @Cdiffs_ml_forw_Fatrix, ...
 			'back', @Cdiffs_ml_back_Fatrix, ...
@@ -145,10 +153,27 @@ end
 %
 function y = Cdiffs_ml_forw(arg, x)
 
-MM = numel(arg.Cc);
-yy = cell(MM,1);
+MM = length(arg.offsets); 
+if ~isempty(arg.Crd)
+	if arg.Crd.arg.does_many > 1
+		augMM = MM + (~isempty(arg.Crd))*arg.Crd.odim(end - 1);
+	else
+		augMM = MM + (~isempty(arg.Crd))*arg.Crd.odim(end);
+	end
+else
+	augMM = MM;
+end
+
+yy = cell(augMM,1);
+Nd = prod(arg.Cc{1}.odim);
 for mm=1:MM
-	yy{mm} = arg.Cc{mm} * x;
+	% handle special case for appending Crespdiff
+	yy{mm} = arg.Cc{mm} * reshape(x, arg.Cc{mm}.idim);
+end
+if ~isempty(arg.Crd)
+	tmp = arg.Cc{mm + 1} * reshape(x, arg.Cc{mm + 1}.idim);
+	yy{mm + 1} = reshape(tmp(:,:,:,:,:,1,:), arg.Cc{1}.odim);
+	yy{augMM} = reshape(tmp(:,:,:,:,:,2,:), arg.Cc{1}.odim);
 end
 dim_cat = numel(arg.isize) + 1;
 y = cat(dim_cat, yy{:});
@@ -162,19 +187,34 @@ function y = Cdiffs_ml_forw_Fatrix(arg, x)
 [x ei] = embed_in(x, arg.mask, arg.np); % [(N) *L]
 LL = size(x, 1+length(arg.isize));
 
-MM = length(arg.Cc);
+MM = length(arg.offsets); 
+if ~isempty(arg.Crd)
+	if arg.Crd.arg.does_many > 1
+		augMM = MM + (~isempty(arg.Crd))*arg.Crd.odim(end - 1);
+	else
+		augMM = MM + (~isempty(arg.Crd))*arg.Crd.odim(end);
+	end
+else
+	augMM = MM;
+end
 
-y = zeros([prod(arg.isize)*LL MM]); % [*N * *L, M]
+y = zeros([prod(arg.isize)*LL augMM]); % [*N * *L, M]
 for mm=1:MM
 	tmp = arg.Cc{mm} * x; % [(N) *L]
 	y(:,mm) = tmp(:);
 end
 
+Nd = numel(tmp);
+if ~isempty(arg.Crd)
+	tmp = arg.Cc{MM+1} * x;
+	y(:,mm+1:augMM) = reshape(tmp, Nd, 2);
+end
+
 if LL > 1
-	y = reshape(y, [prod(arg.isize) LL MM]); % [*N *L M]
+	y = reshape(y, [prod(arg.isize) LL augMM]); % [*N *L M]
 	y = permute(y, [1 3 2]); % [*N M *L]
 end
-y = reshape(y, [arg.isize MM LL]); % [(N) M *L]
+y = reshape(y, [arg.isize augMM LL]); % [(N) M *L]
 
 y = ei.shape(y); % [*N * M, (L)] or [(N) M (L)]
 
@@ -184,25 +224,31 @@ y = ei.shape(y); % [*N * M, (L)] or [(N) M (L)]
 %
 function x = Cdiffs_ml_back(arg, y)
 
-MM = length(arg.Cc); 
-if ~isempty(arg.append)
-	shortMM = MM - 1;
-	MM = MM + arg.append.odim(end) - 1;
+MM = length(arg.offsets); 
+if ~isempty(arg.Crd)
+	if arg.Crd.arg.does_many > 1
+		augMM = MM + (~isempty(arg.Crd))*arg.Crd.odim(end - 1);
+	else
+		augMM = MM + (~isempty(arg.Crd))*arg.Crd.odim(end);
+	end
+else
+	augMM = MM;
 end
-y = reshapee(y, [], MM); % [*N M]
+
+y = reshapee(y, [], augMM); % [*N M]
 
 x = 0;
-for mm=1:shortMM
+for mm=1:MM
 	tmp = reshape(y(:,mm), [arg.isize 1]); % [(N)]
 	tmp = arg.Cc{mm}' * tmp; % [(N)]
 	tmp = tmp .* arg.mask;
 	x = x + tmp;
 end
-if ~isempty(arg.append)
-	tmp = reshape(y(:,shortMM+1:end), [arg.isize arg.append.odim(end)]); % [(N)]
-	tmp = arg.Cc{shortMM+1}' * tmp; % [(N)]
-	tmp = tmp .* arg.mask;
-	x = x + tmp;
+if ~isempty(arg.Crd)
+	tmp = reshape(y(:,MM+1:end), arg.Crd.odim); % [(N)]
+	tmp = arg.Cc{MM + 1}' * tmp; % [(N)]
+	tmp = tmp(:) .* arg.mask(:);
+	x = x + reshape(tmp, size(x));
 end
 
 %
@@ -210,7 +256,16 @@ end
 %
 function x = Cdiffs_ml_back_Fatrix(arg, y)
 
-MM = length(arg.Cc);
+MM = length(arg.offsets); 
+if ~isempty(arg.Crd)
+	if arg.Crd.arg.does_many > 1
+		augMM = MM + (~isempty(arg.Crd))*arg.Crd.odim(end - 1);
+	else
+		augMM = MM + (~isempty(arg.Crd))*arg.Crd.odim(end);
+	end
+else
+	augMM = MM;
+end
 [y eo] = embed_out(y, [arg.isize, MM]); % [(N) M *L]
 LL = size(y, 2+length(arg.isize));
 
@@ -224,7 +279,7 @@ end
 x = 0;
 for mm=1:MM
 	tmp = reshape(y(:,mm), [arg.isize LL]); % [(N) *L]
-	tmp = arg.Cc{mm}' * tmp; % [(N) *L]
+	trg.Cc{MM+1}' * tmp; % [(N)]mp = arg.Cc{)mm}' * tmp; % [(N) *L]
 	x = x + tmp;
 end
 
@@ -303,7 +358,7 @@ for ic = 1:numel(list_class)
 
 	Ci = Ci(:,:);
 
-	types = Cdiff1('types'); % all of them except spmat
+	types = Cdiff1_ml('types'); % all of them except spmat
 %		{'def', 'ind', 'mex', 'sparse', 'convn', 'imfilter'};
 
 	for it=1:numel(types)
@@ -332,7 +387,7 @@ for ic = 1:numel(list_class)
 			fatrix2_tests(C)
 		end
 
-		Cdiff1_test1(C) % abs, squared, adjoint
+		Cdiff1_ml_test1(C) % abs, squared, adjoint
 	end
 
 	if 0

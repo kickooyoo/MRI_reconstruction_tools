@@ -47,7 +47,7 @@ penal = sum(arg.wt(:) .* pot(:));
 
 % RfromC_mask_cgrad()
 function cgrad = RfromC_mask_cgrad(dummy, arg, x)
-tmp = arg.C1 * x;
+tmp = reshape(arg.C1 * x(:), arg.C1.odim);
 wpot = arg.pot.wpot(tmp);
 if numel(arg.wt) == 1
 	wt = wpot * arg.wt; % scalar wt
@@ -60,14 +60,14 @@ cgrad = arg.C1' * (wt .* tmp);
 % RfromC_mask_denom()
 function denom = RfromC_mask_denom(dummy, arg, x)
 Ca = abs(arg.C1);
-tmp = Ca * x;
+tmp = Ca * x(:);
 wpot = arg.pot.wpot(tmp);
 if numel(arg.wt) == 1
 	wt = wpot * arg.wt; % scalar wt
 else
 	wt = wpot .* reshape(arg.wt, size(wpot));
 end
-c1 = Ca * ones(size(x));
+c1 = col(Ca * ones(Ca.idim));
 denom = Ca' * (wt .* c1);
 
 

@@ -1,5 +1,5 @@
- function [xs, info] = pwls_pcg1_array(x, A, W, yi, R, varargin)
-%function [xs, info] = pwls_pcg1_array(x, A, W, yi, R, [options])
+ function [xs, info] = pwls_pcg1(x, A, W, yi, R, varargin)
+%function [xs, info] = pwls_pcg1(x, A, W, yi, R, [options])
 %|
 %| penalized weighted least squares (PWLS)
 %| with convex non-quadratic regularization,
@@ -37,7 +37,7 @@
 %|
 %| Copyright 1996-7, Jeff Fessler, University of Michigan
 
-if nargin == 1 && streq(x, 'test'), pwls_pcg1_array_test, return, end
+if nargin == 1 && streq(x, 'test'), pwls_pcg1_test, return, end
 if nargin < 5, help(mfilename), error(mfilename), end
 
 % defaults
@@ -63,17 +63,16 @@ if arg.stop_diff_tol
 end
 if arg.stop_grad_tol
 	% todo: the "correct" way is sum(abs(sqrtm(W) * y).^2, 'double')
-	norm_grad = @(g) norm(g(:), arg.stop_grad_norm) / reale(sum(sum(sum(sum(sum(abs(sqrtm(W) * yi).^2, 'double'), 'double'), 'double'), 'double'), 'double'));
+	norm_grad = @(g) norm(g, arg.stop_grad_norm) / reale(yi' * (W * yi));
 end
 
 cpu etic
 if isempty(x), x = zeros(ncol(A),1); end
 
-%x = x(:); % mtl
 np = numel(x);
 xs = zeros(np, length(arg.isave));
 if any(arg.isave == 0)
-	xs(:, arg.isave == 0) = x;
+	xs(:, arg.isave == 0) = x(:);
 end
 
 %info = zeros(arg.niter, ?); % trick: do not initialize because size may change
@@ -81,7 +80,6 @@ end
 % initialize projections
 ticker(mfilename, 1, arg.niter)
 Ax = A * x;
-yi = reshape(yi, size(Ax));
 
 oldinprod = 0;
 
@@ -92,19 +90,6 @@ for iter = 1:arg.niter
 	% (negative) gradient
 	ngrad = A' * (W * (yi-Ax));
 	pgrad = R.cgrad(R, x);
-	if (numel(ngrad) ~= numel(pgrad))
-	       keyboard
-       	end
-	if ndims(ngrad) ~= ndims(pgrad)
-		if ndims(ngrad) > ndims(pgrad)
-			pgrad = reshape(pgrad, size(ngrad));
-		else
-			ngrad = reshape(ngrad, size(pgrad));
-		end
-	end
-	if ~all(size(ngrad) == size(pgrad))
-		keyboard
-	end
 	ngrad = ngrad - pgrad;
 
 	if arg.stop_grad_tol && norm_grad(ngrad) < arg.stop_grad_tol
@@ -113,7 +98,7 @@ for iter = 1:arg.niter
 				iter, norm_grad(ngrad), arg.stop_grad_tol)
 		end
 		if isequal(arg.isave, arg.niter) % saving last iterate only?
-			xs = x; % save 'final' iterate
+			xs = x(:); % save 'final' iterate
 		else % saving many iterates?
 			xs(:, arg.isave > iter) = []; % clear out unused
 		end
@@ -180,7 +165,7 @@ for iter = 1:arg.niter
 		% todo: the "correct" way is sum(abs(sqrtm(W) * Adir).^2, 'double')
 		dAWAd = dot_double(conj(Adir), W * Adir); % 2012-07-24
 		dAWAd = reale(dAWAd); % 2008-10-16
-		dAWr = dot_double(conj(Adir), W * (yi-Ax));
+		dAWr = dot_double(Adir, W * (yi-Ax));
 		dAWr = real(dAWr); % 2008-10-16
 		step = 0;
 		for is=1:nsub
@@ -201,9 +186,7 @@ for iter = 1:arg.niter
 			pgrad = R.cgrad(R, x + step * ddir);
 			pdot = dot_double(conj(ddir), pgrad);
 			pdot = real(pdot); % 2008-10-15
-			if ~isscalar(pdot), keyboard, end
 			step = step - (-dAWr + step * dAWAd + pdot) / denom;
-			if ~isscalar(step), keyboard, end
 %			2008-10-16: removed below because made real above
 %			step = real(step); % real step size seems logical
 		end
@@ -223,7 +206,7 @@ for iter = 1:arg.niter
 	x = x + step * ddir;
 
 	if any(arg.isave == iter)
-		xs(:, arg.isave == iter) = col(x);
+		xs(:, arg.isave == iter) = x(:);
 	end
 	info(iter,:) = arg.userfun(x, iter, arg.userarg{:});
 
@@ -236,7 +219,7 @@ for iter = 1:arg.niter
 				iter, ratio, arg.stop_diff_tol)
 		end
 		if isequal(arg.isave, arg.niter) % saving last iterate only?
-			xs = x; % save the 'final' iterate
+			xs = x(:); % save the 'final' iterate
 		else % saving many iterates?
 			xs(:, arg.isave > iter) = []; % clear out unused
 		end
@@ -257,8 +240,8 @@ function dot = dot_double(a, b)
 dot = sum(a(:) .* b(:), 'double'); % double accumulate
 
 
-% pwls_pcg1_array_test
-function pwls_pcg1_array_test
+% pwls_pcg1_test
+function pwls_pcg1_test
 mask = true([8 7]); mask(1) = false;
 A = 2 * Gdft('mask', mask); % orthogonal to permit analytical solution
 xtrue = zeros(size(mask), 'single');
@@ -273,7 +256,7 @@ xhat = embed(xhat, mask);
 im(xhat)
 
 xinit = 0 * mask;
-xpcg = pwls_pcg1_array(xinit(mask(:)), A, 1, y, R, 'niter', 100, ...
+xpcg = pwls_pcg1(xinit(mask(:)), A, 1, y, R, 'niter', 100, ...
 	'stop_grad_tol', 1e-6, 'stop_grad_norm', 2, 'chat', 1);
 xpcg = embed(xpcg, mask);
 
