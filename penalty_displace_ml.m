@@ -39,8 +39,8 @@ if 1 % simple way that assumes d / n < 1/2, which is fine for n > 2
 			fail 'not done'
 		end
 
-%	elseif any(sizes(1:end-1) == 2) 
-%		fail 'not done'
+%	elseif any(sizes(1:end-1) == 2) % mtl
+%		fail 'not done' % mtl
 
 	else
 		residual = offsets;

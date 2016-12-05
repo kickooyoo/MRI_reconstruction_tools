@@ -1,5 +1,5 @@
- function [xs, info] = pwls_pcg1(x, A, W, yi, R, varargin)
-%function [xs, info] = pwls_pcg1(x, A, W, yi, R, [options])
+ function [xs, info] = pwls_pcg1_ml(x, A, W, yi, R, varargin)
+%function [xs, info] = pwls_pcg1_ml(x, A, W, yi, R, [options])
 %|
 %| penalized weighted least squares (PWLS)
 %| with convex non-quadratic regularization,
@@ -59,20 +59,20 @@ arg = vararg_pair(arg, varargin, 'subs', ...
 
 arg.isave = iter_saver(arg.isave, arg.niter);
 if arg.stop_diff_tol
-	norm_diff = @(x) norm(x, arg.stop_diff_norm);
+	norm_diff = @(x) norm(x(:), arg.stop_diff_norm); % mtl
 end
 if arg.stop_grad_tol
 	% todo: the "correct" way is sum(abs(sqrtm(W) * y).^2, 'double')
-	norm_grad = @(g) norm(g, arg.stop_grad_norm) / reale(yi' * (W * yi));
+	norm_grad = @(g) norm(g(:), arg.stop_grad_norm) / reale(dot_double(conj(yi), W * yi)); % mtl
 end
 
 cpu etic
 if isempty(x), x = zeros(ncol(A),1); end
 
-np = numel(x);
+np = numel(x); % mtl
 xs = zeros(np, length(arg.isave));
 if any(arg.isave == 0)
-	xs(:, arg.isave == 0) = x(:);
+	xs(:, arg.isave == 0) = x(:); % mtl
 end
 
 %info = zeros(arg.niter, ?); % trick: do not initialize because size may change
@@ -98,7 +98,7 @@ for iter = 1:arg.niter
 				iter, norm_grad(ngrad), arg.stop_grad_tol)
 		end
 		if isequal(arg.isave, arg.niter) % saving last iterate only?
-			xs = x(:); % save 'final' iterate
+			xs = x(:); % save 'final' iterate % mtl
 		else % saving many iterates?
 			xs(:, arg.isave > iter) = []; % clear out unused
 		end
@@ -165,7 +165,7 @@ for iter = 1:arg.niter
 		% todo: the "correct" way is sum(abs(sqrtm(W) * Adir).^2, 'double')
 		dAWAd = dot_double(conj(Adir), W * Adir); % 2012-07-24
 		dAWAd = reale(dAWAd); % 2008-10-16
-		dAWr = dot_double(Adir, W * (yi-Ax));
+		dAWr = dot_double(conj(Adir), W * (yi-Ax)); % mtl
 		dAWr = real(dAWr); % 2008-10-16
 		step = 0;
 		for is=1:nsub
@@ -206,7 +206,7 @@ for iter = 1:arg.niter
 	x = x + step * ddir;
 
 	if any(arg.isave == iter)
-		xs(:, arg.isave == iter) = x(:);
+		xs(:, arg.isave == iter) = x(:); % mtl
 	end
 	info(iter,:) = arg.userfun(x, iter, arg.userarg{:});
 
@@ -219,7 +219,7 @@ for iter = 1:arg.niter
 				iter, ratio, arg.stop_diff_tol)
 		end
 		if isequal(arg.isave, arg.niter) % saving last iterate only?
-			xs = x(:); % save the 'final' iterate
+			xs = x(:); % save the 'final' iterate % mtl
 		else % saving many iterates?
 			xs(:, arg.isave > iter) = []; % clear out unused
 		end
@@ -237,7 +237,7 @@ out = [gamma step cpu('etoc')];
 
 
 function dot = dot_double(a, b)
-dot = sum(a(:) .* b(:), 'double'); % double accumulate
+dot = sum(a(:) .* b(:), 'double'); % double accumulate % mtl
 
 
 % pwls_pcg1_test

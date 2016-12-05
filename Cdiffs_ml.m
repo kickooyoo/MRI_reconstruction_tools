@@ -29,7 +29,7 @@
 %|	'class'	''	'fatrix2' or 'Fatrix' or '' (default: defer to Cdiff1_ml)
 %|	'odim_squeeze' 1|0	if M=1 then use odim = [(N)] not [(N) M]
 %|				default: 1
-%|	'append' Cdiff1_ml-like fatrix, appended at end of C
+%|	'append' Cdiff1_ml-like fatrix, appended at end of C % mtl
 %| out
 %|	C1	[*N * M, np]	fatrix2 or Fatrix object; np = sum(mask(:))
 %|				also works on arrays: [(N) (L)] -> [(N) M (L)]
@@ -48,7 +48,7 @@ arg.offsets = [];
 arg.mask = [];
 arg.order = 1;
 arg.odim_squeeze = true;
-arg.Crd = {};
+arg.Crd = {}; % mtl
 arg.class = ''; % defer to Cdiff1_ml
 
 % parse optional name/value pairs
@@ -76,7 +76,7 @@ end
 % offsets to neighbors
 arg.offsets = penalty_offsets(arg.offsets, isize);
 MM = length(arg.offsets);
-if ~isempty(arg.Crd)
+if ~isempty(arg.Crd) % mtl
 	if arg.Crd.arg.does_many > 1
 		augMM = MM + (~isempty(arg.Crd))*arg.Crd.odim(end - 1);
 	else
@@ -106,7 +106,7 @@ else
 			'class', arg.class, ...
 			'offset', arg.offsets(mm), 'order', arg.order);
 	end
-	if ~isempty(arg.Crd)
+	if ~isempty(arg.Crd) % mtl
 		arg.Cc{MM+1} = arg.Crd;
 	end
 

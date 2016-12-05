@@ -203,7 +203,7 @@ case 'diff'
 		fail('"diff" supports only simple offsets along coordinates')
 	end
 
-	ob = Cdiff1_ml_fatrix2(arg, true, @Cdiff1_diff_forw, @Cdiff1_diff_back);
+	ob = Cdiff1_ml_fatrix2(arg, true, @Cdiff1_ml_diff_forw, @Cdiff1_ml_diff_back);
 
 case 'for1' % trick: just using "ind" for back because for1 is slow anyway
 	switch arg.class

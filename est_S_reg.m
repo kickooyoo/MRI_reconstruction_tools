@@ -28,7 +28,7 @@ arg = vararg_pair(arg, varargin);
 
 if isempty(arg.bodycoil)
 	SoS = sos_combine(permute(coil_images, [1 2 4 3]), arg.covmat, []);
-	bodycoil_sim = SoS;%.*exp(1i*angle(coil_images(:,:,9)));
+	bodycoil_sim = SoS.*exp(1i*angle(coil_images(:,:,1)));
 	if 0
 		SoS = fftshift(fft2(SoS));
 		[nx ny] = size(SoS);
