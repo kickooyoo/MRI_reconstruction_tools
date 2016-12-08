@@ -13,6 +13,7 @@
 %|
 %| Jeff Fessler, University of Michigan
 %| edited by Mai Le to traverse 3rd dim of 4D objects
+%| if 'mid3', traverse 4th dim
 
 if ~nargin, help(mfilename), error(mfilename), end
 if streq(data, 'test'), jf_slicer_test, return, end
@@ -20,6 +21,7 @@ if streq(data, 'test'), jf_slicer_test, return, end
 arg.clim = [];
 arg.iz = [];
 arg.mid3 = [];
+arg.colormap = 'gray';
 arg = vararg_pair(arg, varargin);
 if ~isreal(data)
 	printm 'warning: taking abs of complex data'
@@ -31,7 +33,11 @@ if isempty(arg.clim)
 end
 
 data = squeeze(data); % ML
-nz = size(data, 3);
+if isempty(arg.mid3)
+	nz = size(data, 3);
+else
+	nz = size(data,4);
+end
 
 if isempty(arg.iz)
 	iz = ceil((nz+1)/2);
@@ -64,11 +70,12 @@ end % jf_slicer_scroll
 function jf_slicer_show
 	if ~isempty(arg.mid3)
 		if isscalar(arg.mid3) && (arg.mid3 == 1)
-			im('mid3', squeeze(data(:,:,iz,:)), arg.clim), cbar %ML
+			im('mid3', squeeze(data(:,:,:,iz)), arg.clim), cbar %ML
 		else
-			mid3 = [squeeze(data(:,:,iz,arg.mid3(3))) squeeze(data(:,arg.mid3(2),iz,:)); squeeze(data(arg.mid3(1),:,iz,:)).' zeros(size(data,4))];
+			mid3 = [squeeze(data(:,:,arg.mid(3),iz)) squeeze(data(:,arg.mid3(2),:,iz)); squeeze(data(arg.mid3(1),:,:,iz)).' zeros(size(data,4))];
 			im(mid3, arg.clim);
 		end
+		colormap(gca, arg.colormap);
 	else
 		im(squeeze(data(:,:,iz,:)), arg.clim), cbar %ML
 	end
