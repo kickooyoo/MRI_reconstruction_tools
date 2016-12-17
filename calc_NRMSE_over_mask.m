@@ -13,6 +13,14 @@ if numel(x) ~= numel(xtrue) || numel(x) ~= numel(mask)
 	display('Error in calc_NRMSE_over_mask: sizes of inputs inconsistent.');
 	keyboard;
 end
+if nargin > 2
+        if numel(x) ~= numel(mask)
+                display('Error in calc_NRMSE_over_mask: sizes of inputs inconsistent.');
+                keyboard;
+        end
+        x = x(mask(:));
+        xtrue = xtrue(mask(:));
+end
 
 xtrue = double(xtrue);
 x = double(x);

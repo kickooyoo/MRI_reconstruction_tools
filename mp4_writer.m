@@ -21,6 +21,7 @@ arg.text_y = 10 + size(x,2)/arg.NI*(0:arg.NI-1);%min(size(x,1), size(x,2))*(0:ar
 arg.profile = 'MPEG-4';
 arg.aspect = ones(1,3);
 arg.debug = false;
+arg.range = [min(abs(x(:))) max(abs(x(:)))];
 if size(x, 1) < size(x, 2)
         tmp = arg.text_y;
         arg.text_y = arg.text_x;
@@ -79,7 +80,8 @@ for ii = 1:Nf
                 else
                         pic = x(:,:,ii);
                 end
-                imshow(squeeze(pic), 'InitialMagnification', arg.magnify);
+%                 imshow(squeeze(pic), 'InitialMagnification', arg.magnify, 'DisplayRange', arg.range);
+                im(squeeze(pic));
                 daspect(arg.aspect);
                 if ~isempty(arg.texts)
                         for jj = 1:length(arg.texts)
