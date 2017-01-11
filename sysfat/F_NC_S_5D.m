@@ -206,6 +206,8 @@ parfor (frame_resp_ndx = 1:arg.Nresp*arg.Nt, arg.Nworkers)
 			curr_S = s(:,:,:, frame_resp_ndx, :);
 		end
 		curr_S_pf{frame_resp_ndx} = curr_S; 			
+	else
+		curr_S_pf{frame_resp_ndx} = [];
 	end
 end
 

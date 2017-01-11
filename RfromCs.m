@@ -30,7 +30,7 @@ if nargin == 1 && streq(varargin{1}, 'test'), RfromCs_test, return, end
 arg.C1 = 1;
 arg.Cs = []; % use Cs for Cdiffs
 arg.pot = {potential_fun('quad')};
-arg.wt = 1;
+arg.wt = {1};
 arg.mask = []; % can give explicitly or read from Cdiffs
 arg = vararg_pair(arg, varargin);
 
@@ -48,7 +48,19 @@ if ~isempty(arg.Cs) && (arg.C1 == 1)
 end
 % provided mask overrides Cdiffs mask
 if ~isempty(arg.Cs) && isempty(arg.mask)
-        arg.mask = arg.Cs.arg.mask;
+	if iscell(arg.Cs)
+		Cs_mask = arg.Cs{1}.arg.mask;
+		if ndims(Cs_mask) == 5
+			arg.mask = Cs_mask(:,:,1,1,1);
+		elseif ndims(Cs_mask) == 2
+			arg.mask = Cs_mask;
+		else
+			display('weird Cs mask dims')
+			keyboard
+		end
+	else
+		arg.mask = arg.Cs.arg.mask;
+	end
 end
 % for backwards compatibility with RfromC (single C1)
 if ~iscell(arg.C1)
@@ -102,8 +114,13 @@ for ii = 1:arg.NC1
         wpot = potfun.wpot(tmp);
         if numel(arg.wt{ii}) == 1
                 wt = wpot * arg.wt{ii}; % scalar wt
-        else
+	elseif numel(arg.wt{ii}) == numel(wpot)/numel(x) % vector wt
+		wt = wpot * kron(arg.wt{ii}, ones(1, numel(x)));
+	elseif numel(arg.wt{ii}) == numel(wpot) % for each elem
                 wt = wpot .* reshape(arg.wt{ii}, size(wpot));
+	else	
+		display('bad choice of wt dims')
+		keyboard
         end
         curr_cgrad = arg.C1{ii}' * (wt .* tmp);
         curr_cgrad = curr_cgrad .* arg.mask;
@@ -121,8 +138,13 @@ for ii = 1:arg.NC1
         wpot = potfun.wpot(tmp);
         if numel(arg.wt{ii}) == 1
                 wt = wpot * arg.wt{ii}; % scalar wt
-        else
+	elseif numel(arg.wt{ii}) == numel(wpot)/numel(x) % vector wt
+		wt = wpot * kron(arg.wt{ii}, ones(1, numel(x)));
+	elseif numel(arg.wt{ii}) == numel(wpot) % for each elem
                 wt = wpot .* reshape(arg.wt{ii}, size(wpot));
+	else	
+		display('bad choice of wt dims')
+		keyboard
         end
         c1 = Ca * ones(Ca.idim);
         curr_denom = Ca' * (wt .* c1);

@@ -18,9 +18,9 @@ if nargin < 3
 	xold = A' * y; % default that is sensible only for some applications
 end
 
-W = reshape(abs(y).^2, size(y));
+W = 1;% reshape(abs(y).^2, size(y));
 tmp = A * xold;
-scale = sum(col(conj(tmp) .* (W .* y)), 'double') / sum(col(abs(sqrt(W) .* tmp).^2), 'double');
+scale = dot_double(conj(tmp), (W .* y)) / sum(col(abs(sqrt(W) .* tmp).^2), 'double');
 xnew = scale * xold;
 
 
@@ -34,3 +34,6 @@ scale1 = 3;
 y = scale1 * A * x;
 [x2 scale2] = ir_wls_init_scale(A, y, x);
 equivs(scale1, scale2)
+
+function dot = dot_double(a, b)
+dot = sum(a(:) .* b(:), 'double');
