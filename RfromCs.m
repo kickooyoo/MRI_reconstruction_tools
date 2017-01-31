@@ -106,7 +106,7 @@ end
 
 % RfromCs_cgrad()
 function cgrad = RfromCs_cgrad(dummy, arg, x)
-cgrad = [];
+cgrad = 0;
 x = embed(x, arg.mask);
 for ii = 1:arg.NC1
         tmp = reshape(arg.C1{ii} * x, arg.C1{ii}.odim);
@@ -115,7 +115,7 @@ for ii = 1:arg.NC1
         if numel(arg.wt{ii}) == 1
                 wt = wpot * arg.wt{ii}; % scalar wt
 	elseif numel(arg.wt{ii}) == numel(wpot)/numel(x) % vector wt
-		wt = wpot * kron(arg.wt{ii}, ones(1, numel(x)));
+		wt = wpot .* reshape(kron(arg.wt{ii}, ones(1, numel(x))), size(wpot));
 	elseif numel(arg.wt{ii}) == numel(wpot) % for each elem
                 wt = wpot .* reshape(arg.wt{ii}, size(wpot));
 	else	
@@ -123,13 +123,13 @@ for ii = 1:arg.NC1
 		keyboard
         end
         curr_cgrad = arg.C1{ii}' * (wt .* tmp);
-        curr_cgrad = curr_cgrad .* arg.mask;
-        cgrad = [cgrad; curr_cgrad];
+        curr_cgrad = masker(curr_cgrad, arg.mask);
+        cgrad = cgrad + curr_cgrad;
 end
 
 % RfromCs_denom()
 function denom = RfromCs_denom(dummy, arg, x)
-denom = [];
+denom = 0;
 x = embed(x, arg.mask);
 for ii = 1:arg.NC1
         Ca = abs(arg.C1{ii});
@@ -139,7 +139,7 @@ for ii = 1:arg.NC1
         if numel(arg.wt{ii}) == 1
                 wt = wpot * arg.wt{ii}; % scalar wt
 	elseif numel(arg.wt{ii}) == numel(wpot)/numel(x) % vector wt
-		wt = wpot * kron(arg.wt{ii}, ones(1, numel(x)));
+		wt = wpot .* reshape(kron(arg.wt{ii}, ones(1, numel(x))), size(wpot));
 	elseif numel(arg.wt{ii}) == numel(wpot) % for each elem
                 wt = wpot .* reshape(arg.wt{ii}, size(wpot));
 	else	
@@ -148,8 +148,8 @@ for ii = 1:arg.NC1
         end
         c1 = Ca * ones(Ca.idim);
         curr_denom = Ca' * (wt .* c1);
-        curr_denom = curr_denom .* arg.mask;
-        denom = [denom; curr_denom];
+        curr_denom = masker(curr_denom, arg.mask);
+        denom = denom + curr_denom;
 end
 
 % RfromCs_C() %% buggy

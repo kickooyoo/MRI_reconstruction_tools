@@ -133,6 +133,7 @@ for coil_ndx = 1:arg.Nc
 					curr_s = x(:,:,:, frame_ndx, resp_ndx, coil_ndx);
 				end
 				if arg.doboth(1)
+					% need to duce does_many NOT WORKING
 					curr_S = arg.A{frame_ndx, resp_ndx}*curr_s;
 					if arg.debug && all([coil_ndx frame_ndx resp_ndx] == [1 1 1])
 						tmp = reshape(arg.A{frame_ndx, resp_ndx}'*curr_S, size(curr_s));
@@ -372,7 +373,7 @@ function [A, cum_Ns] = construct_all_nufft(freqs, arg)
 				om = [real(col(k)) imag(col(k))]*2*pi;
 				Jd = [6 6];
 				% rely on does_many for Nz and Nc
-				A{frame_ndx, resp_ndx} = Gnufft({om, dims, Jd, ceil(dims*1.5), max(floor(dims/2),1), 'table', 2^10, 'minmax:kb'});
+				A{frame_ndx, resp_ndx} = Gnufft(true(arg.Nx, arg.Ny), {om, dims, Jd, ceil(dims*1.5), max(floor(dims/2),1), 'table', 2^10, 'minmax:kb'});
 			end
 		end
 	end
@@ -395,9 +396,9 @@ function [A, cum_Ns] = construct_all_nufft_pf(freqs, arg)
 			Jd = [6 6];
                         % rely on 'does_many' option for Nz and Nc
 			if ~isempty(arg.small_imask)
-				A{frame_resp_ndx} = Gnufft({om, dims, Jd, ceil(dims*1.5), max(floor(dims/2),1), 'table', 2^10, 'minmax:kb', 'imask', arg.small_imask});
+				A{frame_resp_ndx} = Gnufft(true(arg.Nx, arg.Ny), {om, dims, Jd, ceil(dims*1.5), max(floor(dims/2),1), 'table', 2^10, 'minmax:kb', 'imask', arg.small_imask});
 			else
-				A{frame_resp_ndx} = Gnufft({om, dims, Jd, ceil(dims*1.5), max(floor(dims/2),1), 'table', 2^10, 'minmax:kb'});
+				A{frame_resp_ndx} = Gnufft(true(arg.Nx, arg.Ny), {om, dims, Jd, ceil(dims*1.5), max(floor(dims/2),1), 'table', 2^10, 'minmax:kb'});
 			end
 		end
 	end

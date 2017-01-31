@@ -205,6 +205,11 @@ for iter = 1:arg.niter
 %	Cx = Cx + step * Cdir;
 	x = x + step * ddir;
 
+	norm(x(:))
+	if norm(x(:)) == 0
+		display('why x = 0?')
+		keyboard;
+	end
 	if any(arg.isave == iter)
 		xs(:, arg.isave == iter) = x(:); % mtl
 	end
@@ -225,6 +230,10 @@ for iter = 1:arg.niter
 		end
 	return
 	end
+end
+if norm(xs(:,end)) == 0
+	display('why x = 0?')
+	keyboard;
 end
 
 

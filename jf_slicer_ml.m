@@ -22,6 +22,7 @@ arg.clim = [];
 arg.iz = [];
 arg.mid3 = [];
 arg.colormap = 'gray';
+arg.auto = 0;
 arg = vararg_pair(arg, varargin);
 if ~isreal(data)
 	printm 'warning: taking abs of complex data'
@@ -54,7 +55,18 @@ stuff.arg = arg;
 %drawnow
 jf_slicer_show
 
-set(gcf, 'WindowScrollWheelFcn', @jf_slicer_scroll)
+if arg.auto
+	scroll = true;
+	set(gcf, 'KeyPressFcn', 'scroll = false;')
+	while scroll
+		iz = iz + 1;
+		iz = mod(iz - 1, nz) + 1;
+		pause(0.2)
+		jf_slicer_show
+	end
+else
+	set(gcf, 'WindowScrollWheelFcn', @jf_slicer_scroll)
+end
 
 %h = jf_add_slider('callback', @jf_slicer_call, 'data', {stuff}, ...
 %	'min', 1, 'max', nz, 'sliderstep', [1 1]/(nz-1), 'value', iz);
@@ -72,7 +84,7 @@ function jf_slicer_show
 		if isscalar(arg.mid3) && (arg.mid3 == 1)
 			im('mid3', squeeze(data(:,:,:,iz)), arg.clim), cbar %ML
 		else
-			mid3 = [squeeze(data(:,:,arg.mid(3),iz)) squeeze(data(:,arg.mid3(2),:,iz)); squeeze(data(arg.mid3(1),:,:,iz)).' zeros(size(data,4))];
+			mid3 = [squeeze(data(:,:,arg.mid3(3),iz)) squeeze(data(:,arg.mid3(2),:,iz)); squeeze(data(arg.mid3(1),:,:,iz)).' zeros(size(data,3))];
 			im(mid3, arg.clim);
 		end
 		colormap(gca, arg.colormap);
