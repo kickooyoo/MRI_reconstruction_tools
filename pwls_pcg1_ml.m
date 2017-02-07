@@ -44,6 +44,7 @@ if nargin < 5, help(mfilename), error(mfilename), end
 arg.precon = 1;
 arg.niter = 1;
 arg.isave = [];
+arg.isave_fname = 'tmp';
 arg.stepper = {'qs', 3}; % quad surr with this # of subiterations
 arg.userfun = @userfun_default;
 arg.userarg = {};
@@ -70,9 +71,18 @@ cpu etic
 if isempty(x), x = zeros(ncol(A),1); end
 
 np = numel(x); % mtl
-xs = zeros(np, length(arg.isave));
+if isempty(arg.isave_fname)
+	xs = zeros(np, length(arg.isave));
+else
+	xs = zeros(np, 1);
+end
 if any(arg.isave == 0)
-	xs(:, arg.isave == 0) = x(:); % mtl
+	if ~isempty(arg.isave_fname)
+		save([arg.isave_fname sprintf('_%diter', 0)], 'x');
+		display(sprintf('done saving iter %d in %s', 0, arg.isave_fname))
+	else
+		xs(:, arg.isave == 0) = x(:); % mtl
+	end
 end
 
 %info = zeros(arg.niter, ?); % trick: do not initialize because size may change
@@ -97,7 +107,7 @@ for iter = 1:arg.niter
 			printm('stop at iteration %d with grad %g < %g', ...
 				iter, norm_grad(ngrad), arg.stop_grad_tol)
 		end
-		if isequal(arg.isave, arg.niter) % saving last iterate only?
+		if isequal(arg.isave, arg.niter) || ~isempty(arg.isave_fname) % saving last iterate only?
 			xs = x(:); % save 'final' iterate % mtl
 		else % saving many iterates?
 			xs(:, arg.isave > iter) = []; % clear out unused
@@ -205,13 +215,17 @@ for iter = 1:arg.niter
 %	Cx = Cx + step * Cdir;
 	x = x + step * ddir;
 
-	norm(x(:))
 	if norm(x(:)) == 0
 		display('why x = 0?')
 		keyboard;
 	end
 	if any(arg.isave == iter)
-		xs(:, arg.isave == iter) = x(:); % mtl
+		if ~isempty(arg.isave_fname)
+			save([arg.isave_fname sprintf('_%diter', iter)], 'x');
+			display(sprintf('done saving iter %d in %s', iter, arg.isave_fname))
+		else
+			xs(:, arg.isave == iter) = x(:); % mtl
+		end
 	end
 	info(iter,:) = arg.userfun(x, iter, arg.userarg{:});
 
@@ -223,13 +237,16 @@ for iter = 1:arg.niter
 			printm('stop at iteration %d with diff %g < %g', ...
 				iter, ratio, arg.stop_diff_tol)
 		end
-		if isequal(arg.isave, arg.niter) % saving last iterate only?
+		if isequal(arg.isave, arg.niter) || ~isempty(arg.isave_fname) % saving last iterate only?
 			xs = x(:); % save the 'final' iterate % mtl
 		else % saving many iterates?
 			xs(:, arg.isave > iter) = []; % clear out unused
 		end
 	return
 	end
+end
+if ~isempty(arg.isave_fname)
+	xs = x(:);
 end
 if norm(xs(:,end)) == 0
 	display('why x = 0?')
