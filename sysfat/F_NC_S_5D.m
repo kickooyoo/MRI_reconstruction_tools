@@ -47,6 +47,7 @@ arg.pf = true;
 arg.Nworkers = [];
 arg.small_imask = []; % implicit masker on image x
 arg.debug = 0;
+arg.chat = 1;
 arg = vararg_pair(arg, varargin);
 
 if(arg.pf)
@@ -157,6 +158,7 @@ end
 % ---------------------------------------------------------------------------------------------------------
 function y = F_NC_S_5D_forw_pf(arg, x) % ------------------------------------------
 
+if arg.chat, display('beginning FS forw pf'), end
 if ~isempty(arg.small_mask)
 	x = embed(x, arg.small_mask);
 end
@@ -189,6 +191,8 @@ end
 
 if doboth(2)
 	parfor (coil_ndx = 1:arg.Nc, arg.Nworkers)
+		if arg.chat, display(sprintf('entered %d/%d thread in FS forw pf, S', coil_ndx, arg.Nc)), end
+		if mod(coil_ndx, 4) == 0, whos, end
 		s(:,:,:,:,coil_ndx) = x.*repmat(smaps(:,:,:,coil_ndx), [1 1 1 Nt*Nresp]);
 	end
 else
@@ -196,10 +200,12 @@ else
 end
 
 parfor (frame_resp_ndx = 1:arg.Nresp*arg.Nt, arg.Nworkers)
+	if arg.chat, display(sprintf('entered %d/%d thread in FS forw pf', frame_resp_ndx, arg.Nresp*arg.Nt)), end
 	if ~isempty(A{frame_resp_ndx})
 		if doboth(1)
 			% reshape to use does_many over Nz, Nc
 			curr_S = A{frame_resp_ndx}*reshape(s(:,:,:, frame_resp_ndx, :), Nx, Ny, Nz*Nc);
+			if arg.chat, display(sprintf('done applying F in %d/%d thread in FS forw pf', frame_resp_ndx, arg.Nresp*arg.Nt)), end
 			% curr_S  [arg.Ns{resp_ndx}(frame_ndx) Nz*Nc]
 			% where arg.Nx{resp_ndx}(frame_ndx) is Nro*Nspokes of frame, resp
 			curr_S = reshape(curr_S, size(curr_S, 1)*Nz, Nc);
