@@ -23,6 +23,7 @@ arg.iz = [];
 arg.mid3 = [];
 arg.colormap = 'gray';
 arg.auto = 0;
+arg.aspect = []; % how???
 arg = vararg_pair(arg, varargin);
 if ~isreal(data)
 	printm 'warning: taking abs of complex data'

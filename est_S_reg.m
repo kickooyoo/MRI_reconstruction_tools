@@ -47,8 +47,8 @@ end
 if isempty(arg.bodycoil_mask)
 	arg.bodycoil_mask = adaptivethreshold(abs(SoS), 150, arg.thresh) & (abs(SoS) > arg.thresh/2*max(col(abs(SoS))));
 	arg.bodycoil_mask = imerode(arg.bodycoil_mask, strel('disk', round(0.3*arg.dilate))); % get rid of extraneous pixels outside body
-	arg.bodycoil_mask = bwconvhull(arg.bodycoil_mask);
-	arg.bodycoil_mask = imerode(arg.bodycoil_mask, strel('disk', round(1.5*arg.dilate))); % further erode
+%	arg.bodycoil_mask = bwconvhull(arg.bodycoil_mask);
+%	arg.bodycoil_mask = imerode(arg.bodycoil_mask, strel('disk', round(1.5*arg.dilate))); % further erode
 	if sum(arg.bodycoil_mask) == 0
 		display('empty body coil mask!');
 		keyboard;
