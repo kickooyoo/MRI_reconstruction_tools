@@ -1,6 +1,6 @@
-function [ds_data, frame_members, ds_freqs, Ns, ds_dcf] = radial_datasharing(freqs, ...
+function [ds_data, frame_members, ds_freqs, Ns, ds_dcf, plotvars] = radial_datasharing(freqs, ...
 	data, Nyq, Nf, varargin)
-%function [ds_data, frame_members, ds_freqs, Ns, ds_dcf] = radial_datasharing(freqs, ...
+%function [ds_data, frame_members, ds_freqs, Ns, ds_dcf, plotvars] = radial_datasharing(freqs, ...
 %	data, Nyq, varargin)
 %
 % generalization of k-Space Weighted Image Contrast (KWIC)
@@ -103,25 +103,28 @@ for frame_ndx = 1:arg.Nf
 	frame_theta_ndcs = find(squeeze(init_frame_members(frame_ndx,1,:)) == true);
 	
 	% do the datasharing
-	[ring_thetas, ring_theta_ndcs, annuli] = rdatasharing_1f(thetas, ...
+	[ring_thetas{frame_ndx}, ring_theta_ndcs, annuli{frame_ndx}] = rdatasharing_1f(thetas, ...
 		frame_theta_ndcs, Nyq, arg);
-	if arg.figs_on
-		plot_thetas(ring_thetas, annuli, 'Nyquist', Nyq, 'title', ...
-			sprintf('frame %d',frame_ndx));
-	end
 	
 	% format outputs correctly
 	frame_members(frame_ndx,:,:) = format_frame_members(thetas, ...
-		data_mags, ring_theta_ndcs, annuli, arg);
+		data_mags, ring_theta_ndcs, annuli{frame_ndx}, arg);
 end
+   
 ds_time = toc;
 display(sprintf('done with datasharing in %d sec', ds_time));
 
 
 % ----------------- show results -------------
+plotvars.thetas = ring_thetas;
+plotvars.radii = annuli;
+plotvars.frame_members = frame_members;
+plotvars.freqs = freqs;
+plotvars.Nyquist = Nyq;
 if arg.figs_on
-	figure; im(permute(frame_members, [2 3 1]));
-	title('frame membership');
+% 	figure; im(permute(frame_members, [2 3 1]));
+% 	title('frame membership');
+        visualize_radial_datasharing(ring_thetas, annuli, frame_members, freqs, 'Nyquist', Nyq);
 end
 
 % ----------------- calc dcf, format datashared vector data -------------
@@ -394,66 +397,6 @@ end
 function dist = dist(x,y)
 	dist = sqrt(sum(abs(x - y).^2));
 end 
-
-% plot annular segments of spokes
-function plot_thetas(thetas, radii, varargin)
-% assume thetas in cells
-% TO DO: enforce same color for spokes in each annulus
-% if Nyquist varargin not empty, will plot violations
-arg.Nyquist = [];
-arg.draw_rings = true;%false;
-arg.title = [];
-
-arg = vararg_pair(arg, varargin);
-
-figure;
-if length(radii) == 1
-	lines = kron([-radii radii], col(exp(1i*thetas{1})));
-	plot(lines.');
-else
-	hold on;
-	max_spokes = max(cellfun('size', thetas, 2));
-	for ring_ndx = 1:length(radii)
-		curr_thetas = thetas{ring_ndx};
-		if ring_ndx > 1
-			line1 = kron([-radii(ring_ndx) -radii(ring_ndx - 1)], ....
-				col(exp(1i*curr_thetas)));
-			line2 = kron([radii(ring_ndx - 1) radii(ring_ndx)], ....
-				col(exp(1i*curr_thetas)));
-		else
-			line1 = kron([-radii(ring_ndx) 0], col(exp(1i*curr_thetas)));
-			line2 = kron([0 radii(ring_ndx)], col(exp(1i*curr_thetas)));
-		end
-		plot(line1.');
-		hold on;
-		plot(line2.');
-		if ~isempty(arg.Nyquist)
-			both_thetas = mod([col(curr_thetas); col(curr_thetas-pi)], 2*pi);
-			[sorted_thetas, sort_ndcs] = sort(both_thetas);
-			for gap_ndx = 1:length(curr_thetas)
-				a = radii(ring_ndx)*exp(1i*sorted_thetas(gap_ndx));
-				if gap_ndx < length(curr_thetas)
-					b = radii(ring_ndx)*exp(1i*sorted_thetas(gap_ndx + 1));
-				else
-					b = -radii(ring_ndx)*exp(1i*sorted_thetas(1));
-				end
-				curr_dist = dist(a, b);
-				if curr_dist >= arg.Nyquist 
-					plot([a; -a; b; -b],'o');
-				end
-			end
-		end
-		if arg.draw_rings
-			ring = radii(ring_ndx)*exp(1i*linspace(0,2*pi,200));
-			plot(ring,'k--');
-		end
-	end
-end
-axis equal;
-if ~isempty(arg.title) &&ischar(arg.title)
-	title(arg.title);
-end
-end
 
 % trivial case of no datasharing, just mutually exclusive assignment
 function frame_members = trivial_datashare(arg)
