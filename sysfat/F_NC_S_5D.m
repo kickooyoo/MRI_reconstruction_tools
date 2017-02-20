@@ -47,20 +47,8 @@ arg.pf = true;
 arg.Nworkers = [];
 arg.small_imask = []; % implicit masker on image x
 arg.debug = 0;
-arg.chat = 1;
+arg.chat = 0;
 arg = vararg_pair(arg, varargin);
-
-if(arg.pf)
-	pool = gcp('nocreate');
-	if numel(pool) == 0
-		if isempty(arg.Nworkers)
-			pool = parpool();
-			arg.Nworkers = pool.NumWorkers;
-		else
-			pool = parpool(arg.Nworkers);
-		end
-	end 
-end
 
 if ~isempty(arg.sampling) % apply sampling for user
 	[freqs, arg.Ns] = apply_sampling(freqs, arg); 
@@ -191,8 +179,6 @@ end
 
 if doboth(2)
 	parfor (coil_ndx = 1:arg.Nc, arg.Nworkers)
-		if arg.chat, display(sprintf('entered %d/%d thread in FS forw pf, S', coil_ndx, arg.Nc)), end
-		if mod(coil_ndx, 4) == 0, whos, end
 		s(:,:,:,:,coil_ndx) = x.*repmat(smaps(:,:,:,coil_ndx), [1 1 1 Nt*Nresp]);
 	end
 else

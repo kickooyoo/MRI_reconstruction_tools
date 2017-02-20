@@ -20,26 +20,6 @@ arg.draw_zero = false;
 arg.FontSize = 10;
 arg = vararg_pair(arg, varargin);
 
-<<<<<<< Updated upstream
-[Ntime, Nseries] = size(time_series);
-if arg.same_amp
-	amp = max(abs(col(time_series)));
-	for ii = 1:Nseries 
-		curr_max = max(abs(col(time_series(:,ii))));
-		time_series(:,ii) = time_series(:,ii)*amp/curr_max;	
-		if ~isempty(arg.labels)
-			arg.labels{ii} = [arg.labels{ii} sprintf(', scale: %1.1e', curr_max)];
-		end
-	end
-end
-
-offsets = ones(Ntime, 1) * arg.yoffset*col(0:-1:-(Nseries - 1))';
-x_offset = max(cellfun('length', arg.labels)) * arg.FontSize/3;
-if isempty(arg.t)
-        plot(offsets + time_series);
-	hold on; plot(offsets, 'k--');
-	text_x = Ntime - x_offset;
-=======
 if iscell(time_series) 
         figure; hold on;
         if iscell(arg.t)
@@ -65,7 +45,6 @@ if iscell(time_series)
         else
                 keyboard;
         end
->>>>>>> Stashed changes
 else
         
         
