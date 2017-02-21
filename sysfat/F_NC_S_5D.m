@@ -47,7 +47,8 @@ arg.pf = true;
 arg.Nworkers = [];
 arg.small_imask = []; % implicit masker on image x
 arg.debug = 0;
-arg.chat = 0;
+arg.chat = 1;
+arg.timing = 0;
 arg = vararg_pair(arg, varargin);
 
 if ~isempty(arg.sampling) % apply sampling for user
@@ -110,6 +111,7 @@ if arg.doboth(1)
 else
 	y_dims = [arg.Nx arg.Ny arg.Nz arg.Nt arg.Nresp arg.Nc];
 end
+display('about to enter FS forw nonpar loop')
 y = zeros(y_dims, 'single');
 for coil_ndx = 1:arg.Nc
 	if arg.verbose, tic, end
@@ -136,6 +138,7 @@ for coil_ndx = 1:arg.Nc
 				else
 					y(:,:,:, frame_ndx, resp_ndx, coil_ndx) = curr_s;
 				end
+				if arg.chat, display(sprintf('done with FS for %d frame %d resp %d coil', frame_ndx, resp_ndx, coil_ndx)), end
 			end
 		end
 	end
@@ -179,14 +182,18 @@ end
 
 if doboth(2)
 	parfor (coil_ndx = 1:arg.Nc, arg.Nworkers)
+		if arg.chat, display(sprintf('entered %d/%d thread in FS forw pf, S', coil_ndx, arg.Nc)), end
 		s(:,:,:,:,coil_ndx) = x.*repmat(smaps(:,:,:,coil_ndx), [1 1 1 Nt*Nresp]);
 	end
 else
 	s = x;
 end
-
+t0 = clock;
+start = zeros(arg.Nresp*arg.Nt, 6);
+finish = zeros(arg.Nresp*arg.Nt, 6);
 parfor (frame_resp_ndx = 1:arg.Nresp*arg.Nt, arg.Nworkers)
-	if arg.chat, display(sprintf('entered %d/%d thread in FS forw pf', frame_resp_ndx, arg.Nresp*arg.Nt)), end
+%	if arg.timing, start(ii,:) = clock; end
+	if arg.chat, display(sprintf('entered %d/%d thread in FS forw pf after %2.2d sec', frame_resp_ndx, arg.Nresp*arg.Nt, etime(start(ii,:), t0))), end
 	if ~isempty(A{frame_resp_ndx})
 		if doboth(1)
 			% reshape to use does_many over Nz, Nc
@@ -202,6 +209,8 @@ parfor (frame_resp_ndx = 1:arg.Nresp*arg.Nt, arg.Nworkers)
 	else
 		curr_S_pf{frame_resp_ndx} = [];
 	end
+%	if arg.timing,finish(ii,:) = clock; end
+	if arg.chat, display(sprintf('finished %d/%d thread in FS forw pf after %2.2d sec', frame_resp_ndx, arg.Nresp*arg.Nt, etime(finish(ii,:), t0))), end
 end
 
 % construct y because had to save slices over frame_resp_ndx
@@ -292,7 +301,12 @@ doboth = arg.doboth;
 if ~arg.doboth(1)
 	y = reshape(y, arg.Nx, arg.Ny, arg.Nz, arg.Nt*arg.Nresp, arg.Nc);
 end
+t0 = clock;
+start = cell(arg.Nresp*arg.Nt, 1);
+finish = cell(arg.Nresp*arg.Nt, 1);
 parfor (frame_resp_ndx = 1:arg.Nresp*arg.Nt, arg.Nworkers)
+%	if arg.timing,start{ii} = clock; end
+	if arg.chat, display(sprintf('entered %d/%d thread in FS forw pf after %2.2d sec', frame_resp_ndx, arg.Nresp*arg.Nt, etime(start{ii}, t0))), end
 	if ~isempty(A{frame_resp_ndx})
 		if doboth(1)
 			spoke_ndcs = get_spoke_ndcs(frame_resp_ndx, cum_Ns, Nt);
@@ -308,6 +322,8 @@ parfor (frame_resp_ndx = 1:arg.Nresp*arg.Nt, arg.Nworkers)
 		small_s = zeros(Nx, Ny, Nz, Nc);
 	end
 	small_s_pf(:,:,:,frame_resp_ndx,:) = small_s;
+%	if arg.timing, finish{ii} = clock; end
+	if arg.chat, display(sprintf('finished %d/%d thread in FS forw pf after %2.2d sec', frame_resp_ndx, arg.Nresp*arg.Nt, etime(finish{ii}, t0))), end
 end
 if arg.doboth(2)
 	% for loop to avoid duplicating memory hog smaps
