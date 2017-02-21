@@ -1,5 +1,5 @@
- function jf_slicer(data, varargin)
-%function jf_slicer(data, [options])
+ function jf_slicer_ml(data, varargin)
+%function jf_slicer_ml(data, [options])
 %|
 %| slice 3d data interactively (along 3rd dimension).
 %| Uses scroll wheel to sweep through all slices.
@@ -118,6 +118,6 @@ data = reshape(1:7*8*9, 7, 8, 9);
 im plc 1 2
 im subplot 2
 if im
-	jf_slicer(data, 'clim', [0 500])
+	jf_slicer_ml(data, 'clim', [0 500])
 end
 end % jf_slicer_test
