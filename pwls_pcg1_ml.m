@@ -184,7 +184,7 @@ for iter = 1:arg.niter
 		for is=1:nsub
 %			pdenom = Cdir' * (R.wpot(R.wt, Cdir) .* Cdir); % avoid Cdir
 %			pdenom = (abs(ddir).^2)' * R.denom(R, x + step * ddir);
-			pdenom = dot_double(abs(ddir).^2, R.denom(R, x + step * ddir)); if arg.chat, display(sprintf('reached line 187 %d/%d of pcg at ', is, nsub, datestr(now))), end
+			pdenom = dot_double(abs(ddir).^2, R.denom(R, x + step * ddir)); if arg.chat, display(sprintf('reached line 187 %d/%d of pcg at %s', is, nsub, datestr(now))), end
 			denom = dAWAd + pdenom;
 			if denom == 0 || isinf(denom)
 				if norm(pregrad) == 0
@@ -196,7 +196,7 @@ for iter = 1:arg.niter
 					error bad
 				end
 			end
-			pgrad = R.cgrad(R, x + step * ddir); if arg.chat, display(sprintf('reached line 199 %d/%d of pcg at ', is, nsub, datestr(now))), end
+			pgrad = R.cgrad(R, x + step * ddir); if arg.chat, display(sprintf('reached line 199 %d/%d of pcg at %s \n', is, nsub, datestr(now))), end
 			pdot = dot_double(conj(ddir), pgrad);
 			pdot = real(pdot); % 2008-10-15
 			step = step - (-dAWr + step * dAWAd + pdot) / denom;
