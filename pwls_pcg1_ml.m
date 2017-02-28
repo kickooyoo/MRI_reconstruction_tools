@@ -70,21 +70,34 @@ end
 cpu etic
 if isempty(x), x = zeros(ncol(A),1); end
 
+if any(arg.isave == 0)
+	xs(:, arg.isave == 0) = x(:); % mtl
+end
 np = numel(x); % mtl
-if isempty(arg.isave_fname)
+if ~isempty(arg.isave_fname)
+	[exist_hits, exist_fnames] = exist_regexp(arg.isave_fname, 'file');
+	if ~isempty(exist_hits)
+		for ii = 1:length(exist_hits)
+			resume_iter(ii) = sscanf(exist_fnames{ii}, [arg.isave_fname '_%diter.mat'])
+		end
+		keyboard
+		resume_iter = max(resume_iter);
+		if ~isempty(resume_iter)
+			start_iter = resume_iter + 1;
+			load(sprintf([arg.isave_fname '_%diter.mat'], resume_iter));
+		else
+			start_iter = 1;
+		end
+		keyboard
+		display(sprintf('resuming at iter %d in %s', 0, arg.isave_fname))
+	else	
+		save([arg.isave_fname sprintf('_%diter', 0)], 'x', '-v7.3');
+		display(sprintf('done saving iter %d in %s', 0, arg.isave_fname))
+	end
 	xs = zeros(np, length(arg.isave));
 else
 	xs = zeros(np, 1);
-end
-if any(arg.isave == 0)
-	if ~isempty(arg.isave_fname)
-		save([arg.isave_fname sprintf('_%diter', 0)], 'x', '-v7.3');
-%                 if 
-		save([arg.isave_fname sprintf('_%diter', 0)], 'x');
-		display(sprintf('done saving iter %d in %s', 0, arg.isave_fname))
-	else
-		xs(:, arg.isave == 0) = x(:); % mtl
-	end
+	start_iter = 1;
 end
 
 %info = zeros(arg.niter, ?); % trick: do not initialize because size may change
@@ -96,7 +109,7 @@ Ax = A * x;
 oldinprod = 0;
 if arg.chat, display(['about to start iteratinvg, line 95 of pcg at' datestr(now)]), end
 % iterate
-for iter = 1:arg.niter
+for iter = start_iter:arg.niter
 	ticker(mfilename, iter, arg.niter)
 
 	% (negative) gradient
@@ -198,7 +211,7 @@ for iter = 1:arg.niter
 					error bad
 				end
 			end
-			pgrad = R.cgrad(R, x + step * ddir); if arg.chat, display(sprintf('reached line 199 %d/%d of pcg at %s \n', is, nsub, datestr(now))), end
+			pgrad = R.cgrad(R, x + step * ddir); if arg.chat, display(sprintf('reached line 199 %d/%d of pcg at %s', is, nsub, datestr(now))), end
 			pdot = dot_double(conj(ddir), pgrad);
 			pdot = real(pdot); % 2008-10-15
 			step = step - (-dAWr + step * dAWAd + pdot) / denom;
@@ -225,15 +238,15 @@ for iter = 1:arg.niter
 		display('why x = 0?')
 		keyboard;
 	end
+	info(iter,:) = arg.userfun(x, iter, step, ddir, arg.userarg{:});
 	if any(arg.isave == iter)
 		if ~isempty(arg.isave_fname)
-			save([arg.isave_fname sprintf('_%diter', iter)], 'x', '-v7.3');
+			save([arg.isave_fname sprintf('_%diter', iter)], 'x', 'info', '-v7.3');
 			display(sprintf('done saving iter %d in %s', iter, arg.isave_fname))
 		else
 			xs(:, arg.isave == iter) = x(:); % mtl
 		end
 	end
-	info(iter,:) = arg.userfun(x, iter, arg.userarg{:});
 
 	% check norm(xnew-xold) / norm(xnew) vs threshold
 	if arg.stop_diff_tol && ...
@@ -263,10 +276,11 @@ end
 
 % default user function.
 % using this evalin('caller', ...) trick, one can compute anything of interest
-function out = userfun_default(x, iter, varargin)
+function out = userfun_default(x, iter, step, ddir, varargin)
 gamma = evalin('caller', 'gamma');
 step = evalin('caller', 'step');
-out = [gamma step cpu('etoc')];
+n_d = norm(col(step * ddir)) / norm(col(x));
+out = [gamma step cpu('etoc') n_d];
 
 
 function dot = dot_double(a, b)

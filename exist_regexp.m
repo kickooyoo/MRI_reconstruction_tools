@@ -13,6 +13,7 @@ end
 
 dir_ndx = strfind(name_regex, '/');
 if ~isempty(dir_ndx)
+	dir_ndx = dir_ndx(end);
         curr_dir = name_regex(1:dir_ndx-1);
         fname = name_regex(dir_ndx+1:end);
 else
@@ -22,6 +23,8 @@ end
 
 listing = dir(curr_dir);
 
+output = [];
+filenames = {};
 counter = 1;
 for ii = 1:length(listing)
         
@@ -36,7 +39,7 @@ for ii = 1:length(listing)
                 else
                         output(counter) = exist(full_name, type);
                 end
-                filenames(counter) = full_name;
+                filenames{counter} = full_name;
                 counter = counter + 1;
         end
        

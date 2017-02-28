@@ -47,7 +47,7 @@ arg.pf = true;
 arg.Nworkers = [];
 arg.small_imask = []; % implicit masker on image x
 arg.debug = 0;
-arg.chat = 1;
+arg.chat = 0;
 arg.timing = 1;
 arg = vararg_pair(arg, varargin);
 
