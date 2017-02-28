@@ -79,6 +79,8 @@ end
 if any(arg.isave == 0)
 	if ~isempty(arg.isave_fname)
 		save([arg.isave_fname sprintf('_%diter', 0)], 'x', '-v7.3');
+%                 if 
+		save([arg.isave_fname sprintf('_%diter', 0)], 'x');
 		display(sprintf('done saving iter %d in %s', 0, arg.isave_fname))
 	else
 		xs(:, arg.isave == 0) = x(:); % mtl
