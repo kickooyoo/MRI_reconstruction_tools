@@ -19,7 +19,6 @@ if nargin < 3
 end
 
 W = 1;% reshape(abs(y).^2, size(y));
-display('about to do fatrix mult instide init_scale')
 tmp = A * xold;
 scale = dot_double(conj(tmp), (W .* y)) / sum(col(abs(sqrt(W) .* tmp).^2), 'double');
 xnew = scale * xold;

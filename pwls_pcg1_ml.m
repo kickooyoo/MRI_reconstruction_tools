@@ -53,7 +53,7 @@ arg.stop_diff_tol = 0;
 arg.stop_diff_norm = 2;
 arg.stop_grad_tol = 0;
 arg.stop_grad_norm = 2;
-arg.chat = 0;
+arg.chat = 1;
 
 arg = vararg_pair(arg, varargin, 'subs', ...
 {'stop_threshold', 'stop_diff_tol'; 'stop_norm_type', 'stop_diff_norm'});
@@ -78,7 +78,7 @@ else
 end
 if any(arg.isave == 0)
 	if ~isempty(arg.isave_fname)
-		save([arg.isave_fname sprintf('_%diter', 0)], 'x');
+		save([arg.isave_fname sprintf('_%diter', 0)], 'x', '-v7.3');
 		display(sprintf('done saving iter %d in %s', 0, arg.isave_fname))
 	else
 		xs(:, arg.isave == 0) = x(:); % mtl
@@ -92,7 +92,7 @@ ticker(mfilename, 1, arg.niter)
 Ax = A * x;
 
 oldinprod = 0;
-
+if arg.chat, display(['about to start iteratinvg, line 95 of pcg at' datestr(now)]), end
 % iterate
 for iter = 1:arg.niter
 	ticker(mfilename, iter, arg.niter)
@@ -115,6 +115,7 @@ for iter = 1:arg.niter
 	return
 	end
 
+	if arg.chat, display(['reached line 118 of pcg at ' datestr(now)]); end
 	% preconditioned gradient
 	pregrad = arg.precon * ngrad;
 
@@ -149,6 +150,7 @@ for iter = 1:arg.niter
 	Adir = A * ddir;
 %	Cdir = R.C * ddir; % this is too big for 3D CT problems
 
+	if arg.chat, display(['reached line 153 of pcg at ' datestr(now)]), end
 	% one step based on quadratic surrogate for penalty
 	if streq(arg.stepper{1}, 'qs1')
 %		pdenom = Cdir' * (R.wpot(R.wt, Cdir) .* Cdir); % avoid Cdir
@@ -178,10 +180,11 @@ for iter = 1:arg.niter
 		dAWr = dot_double(conj(Adir), W * (yi-Ax)); % mtl
 		dAWr = real(dAWr); % 2008-10-16
 		step = 0;
+		if arg.chat, display(['reached line 183 of pcg at ' datestr(now)]), end
 		for is=1:nsub
 %			pdenom = Cdir' * (R.wpot(R.wt, Cdir) .* Cdir); % avoid Cdir
 %			pdenom = (abs(ddir).^2)' * R.denom(R, x + step * ddir);
-			pdenom = dot_double(abs(ddir).^2, R.denom(R, x + step * ddir));
+			pdenom = dot_double(abs(ddir).^2, R.denom(R, x + step * ddir)); if arg.chat, display(sprintf('reached line 187 %d/%d of pcg at %s', is, nsub, datestr(now))), end
 			denom = dAWAd + pdenom;
 			if denom == 0 || isinf(denom)
 				if norm(pregrad) == 0
@@ -193,7 +196,7 @@ for iter = 1:arg.niter
 					error bad
 				end
 			end
-			pgrad = R.cgrad(R, x + step * ddir);
+			pgrad = R.cgrad(R, x + step * ddir); if arg.chat, display(sprintf('reached line 199 %d/%d of pcg at %s \n', is, nsub, datestr(now))), end
 			pdot = dot_double(conj(ddir), pgrad);
 			pdot = real(pdot); % 2008-10-15
 			step = step - (-dAWr + step * dAWAd + pdot) / denom;
@@ -214,14 +217,15 @@ for iter = 1:arg.niter
 	Ax = Ax + step * Adir;
 %	Cx = Cx + step * Cdir;
 	x = x + step * ddir;
-
+	
+	if arg.chat, display(['reached line 221 of pcg at ' datestr(now)]), end
 	if norm(x(:)) == 0
 		display('why x = 0?')
 		keyboard;
 	end
 	if any(arg.isave == iter)
 		if ~isempty(arg.isave_fname)
-			save([arg.isave_fname sprintf('_%diter', iter)], 'x');
+			save([arg.isave_fname sprintf('_%diter', iter)], 'x', '-v7.3');
 			display(sprintf('done saving iter %d in %s', iter, arg.isave_fname))
 		else
 			xs(:, arg.isave == iter) = x(:); % mtl
@@ -244,6 +248,7 @@ for iter = 1:arg.niter
 		end
 	return
 	end
+	if arg.chat, display(['reached line 251 of pcg at ' datestr(now)]), end
 end
 if ~isempty(arg.isave_fname)
 	xs = x(:);
