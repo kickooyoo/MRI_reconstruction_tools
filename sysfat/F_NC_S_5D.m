@@ -392,12 +392,14 @@ end
 
 function [A, cum_Ns] = construct_all_nufft_pf(freqs, arg)
 	cum_Ns = cumsum(col(arg.Ns));
+	if cum_Ns(end) > numel(freqs), keyboard, end
 	for frame_resp_ndx = 1:arg.Nresp*arg.Nt
 		if arg.Ns(frame_resp_ndx) == 0
 			A{frame_resp_ndx} = [];
 		else
 			A{frame_resp_ndx} = 1;
 			curr_spokes = get_spoke_ndcs(frame_resp_ndx, cum_Ns, arg.Nt);
+			if max(curr_spokes) > numel(freqs), keyboard, end
 			% default: 'table', 2^10, 'minmax:kb'
 			dims = [arg.Nx arg.Ny];
 			k = freqs(:, curr_spokes);
@@ -415,7 +417,7 @@ end
 
 % ---------------------------------------------------------------------------------------------------------
 function [freqs, Ns] = apply_sampling(freqs, arg)
-
+% output freqs [Nro Nspokes], Ns doesn't account for Nro or Nz
 % do I need to know Nspokes for this?
 % move sampling out of arg? hijack an input var?
 
@@ -432,13 +434,16 @@ if issparse(arg.sampling)
 	end
 	spoke_ndcs = (1:Nspokes);
 	Nsparse_dresp = arg.Nro * Nspokes * arg.Nz;
+	freqs_per_resp = [];
 	for ii = 1:arg.Nresp
 		resp_ndcs = Nsparse_dresp * (ii - 1) + (1:Nsparse_dresp);
 		% [Nro Nslice] number of frames associated with given respiratory state
 		in_resp = reshape(full(diag(arg.sampling(resp_ndcs, resp_ndcs))), arg.Nro, arg.Nz, Nspokes); 
-		Nsamp_per_spoke = Nro*squeeze(in_resp(1,1,:));
-		Ns(:,ii) = sum(reshape(Nsamp_per_spoke, M, arg.Nt), 1); 
-		freqs_per_resp{ii} = col(freqs(:, spoke_ndcs(logical(in_resp(1,1,:)))));
+		%Nsamp_per_spoke = arg.Nro*squeeze(in_resp(1,1,:));
+		%Ns(:,ii) = sum(reshape(Nsamp_per_spoke, M, arg.Nt), 1); 
+		Ns(:,ii) = sum(reshape(in_resp(1,1,:), M, arg.Nt), 1); 
+		%freqs_per_resp{ii} = col(freqs(:, spoke_ndcs(logical(in_resp(1,1,:)))));
+		freqs_per_resp = [freqs_per_resp (freqs(:, spoke_ndcs(logical(in_resp(1,1,:)))))];
 	end
 	freqs = freqs_per_resp;
 else	
@@ -455,8 +460,9 @@ else
 	spoke_ndcs = (1:Nspokes);
 	for ii = 1:arg.Nresp
 		in_resp = squeeze(sum(arg.sampling(:,:,:,ii),2)); % [Nro Nslice] number of frames associated with given respiratory state
-		Nsamp_per_spoke = Nro*squeeze(arg.sampling(1,:,1,ii));
-		Ns(:,ii) = sum(reshape(Nsamp_per_spoke, M, arg.Nt), 1); 
+		%Nsamp_per_spoke = arg.Nro*squeeze(arg.sampling(1,:,1,ii));
+		%Ns(:,ii) = sum(reshape(Nsamp_per_spoke, M, arg.Nt), 1); 
+		Ns(:,ii) = sum(reshape(arg.sampling(1,:,1,ii), M, arg.Nt), 1); 
 		freqs_per_resp{ii} = col(freqs(:, spoke_ndcs(logical(arg.sampling(1,:,1,ii)))));
 	end
 	freqs = freqs_per_resp;

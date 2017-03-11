@@ -10,8 +10,9 @@ smtpObj.login('051364@gmail.com', 'M3a1t4L1a5b8')
 #smtpObj.sendmail('051364@gmail.com', '2149126246@tmomail.net', 'test text from Python')
 
 
-Nframes = 30
-resp_vals = [0.1, 0.3, 0.5, 0.7]
+Nframes = 20
+resp_vals = [x / 10.0 for x in range(0, 11, 1)]
+#[0.1, 0.3, 0.5, 0.7]
 for resp_val in resp_vals :
 	for frame in range(0, Nframes) :
                 start = time.time()

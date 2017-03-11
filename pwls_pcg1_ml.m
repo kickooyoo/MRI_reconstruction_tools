@@ -80,7 +80,6 @@ if ~isempty(arg.isave_fname)
 		for ii = 1:length(exist_hits)
 			resume_iter(ii) = sscanf(exist_fnames{ii}, [arg.isave_fname '_%diter.mat'])
 		end
-		keyboard
 		resume_iter = max(resume_iter);
 		if ~isempty(resume_iter)
 			start_iter = resume_iter + 1;
@@ -88,9 +87,9 @@ if ~isempty(arg.isave_fname)
 		else
 			start_iter = 1;
 		end
-		keyboard
 		display(sprintf('resuming at iter %d in %s', 0, arg.isave_fname))
 	else	
+		start_iter = 1;
 		save([arg.isave_fname sprintf('_%diter', 0)], 'x', '-v7.3');
 		display(sprintf('done saving iter %d in %s', 0, arg.isave_fname))
 	end
