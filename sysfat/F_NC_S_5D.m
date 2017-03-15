@@ -9,7 +9,7 @@ function FS = F_NC_S_5D(freqs, sense_maps, Ns, Nro, Nt, Nresp, varargin)
 % | 	freqs [Nro Nspokes(sorted byresp)]  assuming same across Cartesian Nz, (complex double)
 % |     sense_maps [Nx Ny Nz Nc]
 % |	Ns [Nt Nresp] (int)
-% |		number of slices associated with Nt, Nresp (not including Nro, Nslice factor)
+% |		number of samples associated with Nt, Nresp (not including Nro, Nslice factor)
 % | varargin:
 % | 	list_mode
 % |		output size: [sum(Ns) Nc]
@@ -218,8 +218,10 @@ end
 if arg.doboth(1)
 	for frame_resp_ndx = 1:arg.Nresp*arg.Nt
 			spoke_ndcs = get_spoke_ndcs(frame_resp_ndx, arg.cum_Ns, arg.Nt);
-			y_dims = [arg.Nro numel(spoke_ndcs), arg.Nz, arg.Nc];
-			y(:,spoke_ndcs,:,:) = reshape(curr_S_pf{frame_resp_ndx}, y_dims);
+			if ~isempty(spoke_ndcs)
+				y_dims = [arg.Nro numel(spoke_ndcs), arg.Nz, arg.Nc];
+				y(:,spoke_ndcs,:,:) = reshape(curr_S_pf{frame_resp_ndx}, y_dims);
+			end
 	end
 else
 	y_dims = [arg.Nx arg.Ny arg.Nz arg.Nc];
@@ -402,6 +404,7 @@ function [A, cum_Ns] = construct_all_nufft_pf(freqs, arg)
 			if max(curr_spokes) > numel(freqs), keyboard, end
 			% default: 'table', 2^10, 'minmax:kb'
 			dims = [arg.Nx arg.Ny];
+			if max(curr_spokes) > size(freqs, 2), keyboard, end
 			k = freqs(:, curr_spokes);
 			om = [real(col(k)) imag(col(k))]*2*pi;
 			Jd = [6 6];

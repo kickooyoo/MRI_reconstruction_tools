@@ -136,7 +136,7 @@ for iter = start_iter:arg.niter
 	% search direction
 	newinprod = dot_double(conj(ngrad), pregrad);
 	newinprod = reale(newinprod, 'warn', 'inprod');
-	if iter == 1
+	if iter == start_iter
 		ddir = pregrad;
 		gamma = 0;
 	else
