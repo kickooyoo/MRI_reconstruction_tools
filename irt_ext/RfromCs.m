@@ -93,7 +93,9 @@ R = strum(arg, meth);
 % RfromCs_penal()
 function penal = RfromCs_penal(dummy, arg, x)
 penal = [];
-x = embed(x, arg.mask);
+if any(col(~arg.mask))
+	x = embed(x, arg.mask);
+end
 for ii = 1:arg.NC1
         C1 = arg.C1{ii};
         tmp = C1 * x;
@@ -108,7 +110,9 @@ end
 % RfromCs_cgrad()
 function cgrad = RfromCs_cgrad(dummy, arg, x)
 cgrad = 0;
-x = embed(x, arg.mask);
+if any(col(~arg.mask))
+	x = embed(x, arg.mask);
+end
 for ii = 1:arg.NC1
 	if arg.chat, display(sprintf('line 113 %d/%d in R cgrad at %s', ii, arg.NC1, datestr(now))), end
         tmp = reshape(arg.C1{ii} * x, arg.C1{ii}.odim);
@@ -127,14 +131,18 @@ for ii = 1:arg.NC1
 	if arg.chat, display(sprintf('line 127 %d/%d in R cgrad at %s', ii, arg.NC1, datestr(now))), end
         curr_cgrad = arg.C1{ii}' * (wt .* tmp);
 	if arg.chat, display(sprintf('line 129 %d/%d in R cgrad at %s', ii, arg.NC1, datestr(now))), end
-        curr_cgrad = masker(curr_cgrad, arg.mask);
+	if any(col(~arg.mask))
+		curr_cgrad = masker(curr_cgrad, arg.mask);
+	end
         cgrad = cgrad + curr_cgrad;
 end
 
 % RfromCs_denom()
 function denom = RfromCs_denom(dummy, arg, x)
 denom = 0;
-x = embed(x, arg.mask);
+if any(col(~arg.mask))
+	x = embed(x, arg.mask);
+end
 for ii = 1:arg.NC1
         Ca = abs(arg.C1{ii});
 	if arg.chat, display(sprintf('line 140 %d/%d in R denom at %s', ii, arg.NC1, datestr(now))), end
@@ -157,7 +165,9 @@ for ii = 1:arg.NC1
 	if arg.chat, display(sprintf('line 157 %d/%d in R denom at %s', ii, arg.NC1, datestr(now))), end
         curr_denom = Ca' * (wt .* c1);
 	if arg.chat, display(sprintf('line 159 %d/%d in R denom at %s', ii, arg.NC1, datestr(now))), end
-        curr_denom = masker(curr_denom, arg.mask);
+	if any(col(~arg.mask))
+        	curr_denom = masker(curr_denom, arg.mask);
+	end
         denom = denom + curr_denom;
 end
 

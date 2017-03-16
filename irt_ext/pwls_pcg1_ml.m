@@ -44,7 +44,7 @@ if nargin < 5, help(mfilename), error(mfilename), end
 arg.precon = 1;
 arg.niter = 1;
 arg.isave = [];
-arg.isave_fname = 'tmp';
+arg.isave_fname = './tmp';
 arg.stepper = {'qs', 3}; % quad surr with this # of subiterations
 arg.userfun = @userfun_default;
 arg.userarg = {};
@@ -53,7 +53,7 @@ arg.stop_diff_tol = 0;
 arg.stop_diff_norm = 2;
 arg.stop_grad_tol = 0;
 arg.stop_grad_norm = 2;
-arg.chat = 1;
+arg.chat = 0;
 
 arg = vararg_pair(arg, varargin, 'subs', ...
 {'stop_threshold', 'stop_diff_tol'; 'stop_norm_type', 'stop_diff_norm'});
@@ -74,11 +74,11 @@ if any(arg.isave == 0)
 	xs(:, arg.isave == 0) = x(:); % mtl
 end
 np = numel(x); % mtl
-if ~isempty(arg.isave_fname)
+if 0%~isempty(arg.isave_fname)
 	[exist_hits, exist_fnames] = exist_regexp(arg.isave_fname, 'file');
 	if ~isempty(exist_hits)
 		for ii = 1:length(exist_hits)
-			resume_iter(ii) = sscanf(exist_fnames{ii}, [arg.isave_fname '_%diter.mat'])
+			resume_iter(ii) = sscanf(exist_fnames{ii}, [arg.isave_fname '_%diter.mat']);
 		end
 		resume_iter = max(resume_iter);
 		if ~isempty(resume_iter)

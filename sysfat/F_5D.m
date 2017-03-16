@@ -20,8 +20,8 @@ arg.Ns = arg.Nr;
 arg.sampling = []; 
 arg = vararg_pair(arg, varargin);
 
-if ~isempty(arg.sampling) && ( (size(arg.sampling,1) ~= Nx) || (size(arg.sampling,2) ~= Ny) || (size(arg.sampling,3) ~= Nz) )
-        display(sprintf('samp size [%d %d %d] does not match given dims:[%d %d %d]', size(arg.sampling,1), size(arg.sampling,2), size(arg.sampling,3), Nx, Ny, Nz));
+if ~isempty(arg.sampling) && ( (size(arg.sampling,1) ~= Nx) || (size(arg.sampling,2) ~= Ny) || (size(arg.sampling,4) ~= Nt) )
+        display(sprintf('samp size [%d %d * %d] does not match given dims:[%d %d * %d]', size(arg.sampling,1), size(arg.sampling,2), size(arg.sampling,3), Nx, Ny, Nz));
         keyboard
 end
 if ~isempty(arg.sampling) && ~islogical(arg.sampling)
@@ -39,7 +39,7 @@ if (arg.Nc > 1)
                         @F_5D_forw, 'back', @F_5D_back);
         else
                 F = fatrix2('idim', [arg.Nx arg.Ny arg.Nz arg.Nt arg.Nresp arg.Nc], 'arg', ...
-                        arg, 'odim', [arg.Ns arg.Nt arg.Nc], 'forw', ... % ??? odims
+                        arg, 'odim', [arg.Ns*arg.Nz arg.Nc], 'forw', ... % ??? odims
                         @F_5D_forw, 'back', @F_5D_back);
                 
         end
@@ -50,7 +50,7 @@ else
                         @F_5D_forw, 'back', @F_5D_back);
         else
                 F = fatrix2('idim', [arg.Nx arg.Ny arg.Nz arg.Nt arg.Nresp], 'arg', arg, ...
-                        'odim', [arg.Ns arg.Nt], 'forw', @F_5D_forw, ... % ??? odims
+                        'odim', [arg.Ns*arg.Nz 1], 'forw', @F_5D_forw, ... % ??? odims
                         'back', @F_5D_back);
                 
         end
@@ -69,11 +69,13 @@ function S = F_5D_forw(arg,s)
 % 	end
 % end
 
-S = fft(fft(fft(s,[],1),[],2),[],3);
+S = fft(fft(fft(s,[],1),[],2),[],3); % [Nx Ny Nz Nt Nresp Nc]
 if ~isempty(arg.sampling)
-        S = S(repmat(permute(arg.sampling, [1 2 5 3 4 6]), [1 1 arg.Nz 1 1 arg.Nc]));
+%	S = permute(S, [1 2 4 5 3 6]); % [Nx Ny Nz Nt Nresp Nc]
+	samp = repmat(arg.sampling, [1 1 arg.Nz 1 1 arg.Nc]);
+        S = S(samp);
+	S = reshape(S, arg.Ns*arg.Nz, arg.Nc); % [Ns(withNz) Nc]
 end
-
 end
 
 % x = G' * y
@@ -86,8 +88,7 @@ function s = F_5D_back(arg,S)
 %     end
 % end
 if ~isempty(arg.sampling)
-        S = embed(col(S), repmat(permute(arg.sampling, [1 2 5 3 4 6]), [1 1 arg.Nz 1 1 arg.Nc]));
+        S = embed(col(S), repmat(arg.sampling, [1 1 arg.Nz 1 1 arg.Nc]));
 end
 s = ifft(ifft(ifft(S,[],1),[],2),[],3)*arg.Nr;
-
 end
