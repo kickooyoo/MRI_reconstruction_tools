@@ -33,7 +33,7 @@
 %|
 %| out
 %|	xs	[np niter]	estimates each iteration
-%|	info	[niter 3]	gamma, step size, time each iteration
+%|	info	[niter 4]	gamma, step size, time each iteration, stop_diff_tol
 %|
 %| Copyright 1996-7, Jeff Fessler, University of Michigan
 
@@ -44,7 +44,7 @@ if nargin < 5, help(mfilename), error(mfilename), end
 arg.precon = 1;
 arg.niter = 1;
 arg.isave = [];
-arg.isave_fname = './tmp';
+arg.isave_fname = [];
 arg.stepper = {'qs', 3}; % quad surr with this # of subiterations
 arg.userfun = @userfun_default;
 arg.userarg = {};
@@ -74,7 +74,7 @@ if any(arg.isave == 0)
 	xs(:, arg.isave == 0) = x(:); % mtl
 end
 np = numel(x); % mtl
-if 0%~isempty(arg.isave_fname)
+if ~isempty(arg.isave) && ~isempty(arg.isave_fname)
 	[exist_hits, exist_fnames] = exist_regexp(arg.isave_fname, 'file');
 	if ~isempty(exist_hits)
 		for ii = 1:length(exist_hits)
@@ -94,6 +94,9 @@ if 0%~isempty(arg.isave_fname)
 		display(sprintf('done saving iter %d in %s', 0, arg.isave_fname))
 	end
 	xs = zeros(np, length(arg.isave));
+elseif ~isempty(arg.isave)
+	xs = zeros(np, length(arg.isave));
+	start_iter = 1;
 else
 	xs = zeros(np, 1);
 	start_iter = 1;
@@ -112,7 +115,7 @@ for iter = start_iter:arg.niter
 	ticker(mfilename, iter, arg.niter)
 
 	% (negative) gradient
-	ngrad = A' * (W * (yi-Ax));
+	ngrad = reshape(A' * (W * (yi-Ax)), A.idim);
 	pgrad = R.cgrad(R, x);
 	ngrad = ngrad - pgrad;
 
@@ -155,7 +158,7 @@ for iter = start_iter:arg.niter
 	% check if descent direction
 	if real(dot_double(conj(ddir), ngrad)) < 0
 		warn('wrong direction at iter=%d; try using stop_grad_tol?', iter)
-		ratio = norm(ngrad(:), arg.stop_grad_norm) / (yi'*W*yi);
+		ratio = norm(ngrad(:), arg.stop_grad_norm) / (col(yi)'*W*col(yi));
 		pr ratio % see how small it is
 		if arg.key, keyboard, end
 	end

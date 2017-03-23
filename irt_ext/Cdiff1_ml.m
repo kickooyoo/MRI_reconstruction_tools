@@ -34,7 +34,7 @@
 %|				'convn' - use matlab's convn, e.g. with [-1 1]
 %|					(very slow - do not use!)
 %|	'offset' [int]		neighbor offset. (default: [1], left neighbor)
-%|				Scalar, or [dx dy dz ...] with length(isize).
+%|				Scalar, or displacement [dx dy dz ...] with length(isize).
 %|				If 0, then C1 = Identity.
 %|	'order'	1 or 2		1st- or 2nd-order differences.  (default: 1)
 %|	'class'			'fatrix2' (default) or 'Fatrix'
@@ -55,7 +55,7 @@
 %| Copyright 2006-11-29, Jeff Fessler, University of Michigan
 
 if nargin == 1 && streq(isize, 'test'), Cdiff1_ml_test, return, end
-if nargin < 1, help(mfilename), error(mfilename), end
+if nargin < 1, ir_usage, end
 
 if streq(isize, 'types') % list from fastest to slowest order (on 2008 mac pro)
 	ob = {'mex', 'circshift', 'imfilter', 'sparse', 'for1', 'ind', 'convn'};
@@ -80,9 +80,11 @@ end
 
 if length(arg.offset) > 1 % displacement vector instead of offset scalar
 	if ~isequal(size(arg.offset), size(arg.isize)), error 'offset size', end
-	arg.offset = sum(cumprod([1 arg.isize(1:end-1)]) .* arg.offset);
+	%arg.offset = sum(cumprod([1 arg.isize(1:end-1)]) .* arg.offset);
+	arg.displace = arg.offset;
+else
+	%arg.displace = penalty_displace(arg.offset, arg.isize);
 end
-arg.displace = penalty_displace_ml(arg.offset, arg.isize);
 
 arg.is_abs = false;
 arg.Cpower = 1; % start with C = C^1
@@ -137,7 +139,7 @@ if arg.offset == 0
 			ob = Fatrix(arg.dim, arg, 'caller', 'Cdiff1_ml:ident', ...
 				'forw', @Cdiff1_ml_ident_dup, ...
 				'back', @Cdiff1_ml_ident_dup, ...
-				'abs', @Cdiff1_ml_abs, 'power', @Cdiff1_power);
+				'abs', @Cdiff1_ml_abs, 'power', @Cdiff1_ml_power);
 		otherwise
 			fail('class %s unknown', arg.class)
 		end
@@ -186,7 +188,7 @@ case {'convn', 'imfilter'}
 		ob = Cdiff1_ml_fatrix2(arg, true, forw, back);
 	case 'Fatrix'
 		ob = Cdiff1_ml_Fatrix(arg, ...
-			@Cdiff1_ml_filt_forw_Fatrix, @Cdiff1_filt_back_Fatrix);
+			@Cdiff1_ml_filt_forw_Fatrix, @Cdiff1_ml_filt_back_Fatrix);
 	otherwise, fail bug
 	end
 
@@ -213,7 +215,7 @@ case 'for1' % trick: just using "ind" for back because for1 is slow anyway
 		ob = Cdiff1_ml_fatrix2(arg, false, forw, back);
 	case 'Fatrix'
 		ob = Cdiff1_ml_Fatrix(arg, ...
-			@Cdiff1_ml_for1_forw_Fatrix, @Cdiff1_ind_back_Fatrix); % !
+			@Cdiff1_ml_for1_forw_Fatrix, @Cdiff1_ml_ind_back_Fatrix); % !
 	otherwise, fail bug
 	end
 
@@ -225,7 +227,7 @@ case 'ind'
 		ob = Cdiff1_ml_fatrix2(arg, false, forw, back);
 	case 'Fatrix'
 		ob = Cdiff1_ml_Fatrix(arg, ...
-			@Cdiff1_ml_ind_forw_Fatrix, @Cdiff1_ind_back_Fatrix);
+			@Cdiff1_ml_ind_forw_Fatrix, @Cdiff1_ml_ind_back_Fatrix);
 	otherwise, fail bug
 	end
 
@@ -239,7 +241,7 @@ case 'mex'
 		ob = Cdiff1_ml_fatrix2(arg, true, forw, back);
 	case 'Fatrix'
 		ob = Cdiff1_ml_Fatrix(arg, ...
-			@Cdiff1_ml_mex_forw_Fatrix, @Cdiff1_mex_back_Fatrix);
+			@Cdiff1_ml_mex_forw_Fatrix, @Cdiff1_ml_mex_back_Fatrix);
 	otherwise, fail bug
 	end
 
@@ -250,7 +252,7 @@ case 'sparse'
 		ob = Gmatrix(arg.C, 'idim', arg.isize, 'odim', arg.isize);
 	case 'Fatrix'
 		arg.C = Gsparse(arg.C, 'idim', arg.isize, 'odim', arg.isize);
-		ob = Cdiff1_ml_Fatrix(arg, @Cdiff1_sp_forw, @Cdiff1_sp_back);
+		ob = Cdiff1_ml_Fatrix(arg, @Cdiff1_ml_sp_forw, @Cdiff1_ml_sp_back);
 	otherwise, fail bug
 	end
 
