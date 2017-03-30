@@ -54,7 +54,7 @@ arg.stop_diff_norm = 2;
 arg.stop_grad_tol = 0;
 arg.stop_grad_norm = 2;
 arg.chat = 0;
-
+arg.calc_cost = 0;
 arg = vararg_pair(arg, varargin, 'subs', ...
 {'stop_threshold', 'stop_diff_tol'; 'stop_norm_type', 'stop_diff_norm'});
 
@@ -65,6 +65,19 @@ end
 if arg.stop_grad_tol
 	% todo: the "correct" way is sum(abs(sqrtm(W) * y).^2, 'double')
 	norm_grad = @(g) norm(g(:), arg.stop_grad_norm) / reale(dot_double(conj(yi), W * yi)); % mtl
+end
+if arg.calc_cost
+	arg.lambda_s = R.data.wt{1}; 
+	if length(R.data) > 3
+		arg.lambda_t = R.data.wt{4};
+	else
+		arg.lambda_t = 0;
+	end
+	if length(R.data.wt) > 4
+		arg.lambda_r = R.data.wt{5}; arg.lambda_r = arg.lambda_r(1);
+	else 
+		arg.lambda_r = 0;
+	end
 end
 
 cpu etic
@@ -158,7 +171,7 @@ for iter = start_iter:arg.niter
 	% check if descent direction
 	if real(dot_double(conj(ddir), ngrad)) < 0
 		warn('wrong direction at iter=%d; try using stop_grad_tol?', iter)
-		ratio = norm(ngrad(:), arg.stop_grad_norm) / (col(yi)'*W*col(yi));
+		ratio = norm_grad(ngrad);% norm(ngrad(:), arg.stop_grad_norm) / reale(dot_double(conj(yi), W * yi)); %  
 		pr ratio % see how small it is
 		if arg.key, keyboard, end
 	end
@@ -240,7 +253,11 @@ for iter = start_iter:arg.niter
 		display('why x = 0?')
 		keyboard;
 	end
-	info(iter,:) = arg.userfun(x, iter, step, ddir, arg.userarg{:});
+	info(iter,1:4) = arg.userfun(x, iter, step, ddir, arg.userarg{:});
+	if arg.calc_cost
+		curr_cost = MMI_cost(x, arg, A, 1, R.data.Cs, yi);
+		info(iter,5) = curr_cost;
+	end
 	if any(arg.isave == iter)
 		if ~isempty(arg.isave_fname)
 			save([arg.isave_fname sprintf('_%diter', iter)], 'x', 'info', '-v7.3');
