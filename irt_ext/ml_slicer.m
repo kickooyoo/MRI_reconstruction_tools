@@ -52,8 +52,8 @@ end
 if ~isempty(arg.mid3)
 % mid3 plotting constants
 border = 30; % pixels?
-x0 = 10;
-y0 = 10;
+x0 = 30;
+y0 = 30;
 [Nx, Ny, Nz, N4, N5] = size(data);
 Ax = Nx * arg.aspect(1);
 Ay = Ny * arg.aspect(2);
@@ -128,12 +128,15 @@ function ml_slicer_show
                 yz = squeeze(data(arg.mid3(1),:,:,iz)).';
                 % imagesc to fill subplot space, .' to match im orientation
                 subplot(sxz), imagesc(xz.', arg.clim); 
+		set(gca, 'XTick', [0 Nx], 'YTick', [0 Nz])
                 colormap(gca, arg.colormap); 
                 title(sprintf('%d/%d x-z plane', arg.mid3(2), Ny))
                 subplot(sxy), imagesc(xy.', arg.clim); 
+		set(gca, 'XTick', [0 Nx], 'YTick', [0 Ny])
                 colormap(gca, arg.colormap); 
                 title(sprintf('%d/%d x-y plane', arg.mid3(3), Nz))
                 subplot(syz), imagesc(yz.', arg.clim); 
+		set(gca, 'XTick', [0 Nz], 'YTick', [0 Ny])
                 colormap(gca, arg.colormap); cbar
                 title(sprintf('%d/%d y-z plane', arg.mid3(1), Nx))
                 % restore position after colorbar

@@ -95,8 +95,13 @@ if ~isempty(arg.isave) && ~isempty(arg.isave_fname)
 		end
 		resume_iter = max(resume_iter);
 		if ~isempty(resume_iter)
-			start_iter = resume_iter + 1;
 			load(sprintf([arg.isave_fname '_%diter.mat'], resume_iter));
+			if resume_iter >= arg.niter
+				xs = x;
+				return;
+			else
+				start_iter = resume_iter + 1;
+			end
 		else
 			start_iter = 1;
 		end

@@ -19,7 +19,8 @@ if nargin < 3
 end
 
 W = 1;% reshape(abs(y).^2, size(y));
-tmp = A * xold;
+W = ones(size(y));
+tmp = reshape(A * xold, size(y));
 scale = dot_double(conj(tmp), (W .* y)) / sum(col(abs(sqrt(W) .* tmp).^2), 'double');
 xnew = scale * xold;
 
