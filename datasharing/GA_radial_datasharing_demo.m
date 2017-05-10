@@ -9,7 +9,7 @@ Nro = 20;
 Nx = 15;
 Fibo = 8;
 Nspokes = Nf*Fibo;
-grad_shift = -1.75;
+grad_shift = -.75;
 
 % %% somewhat more realistic set of values
 % Nf = 5;

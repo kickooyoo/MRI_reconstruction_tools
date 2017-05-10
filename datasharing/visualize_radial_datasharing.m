@@ -8,7 +8,8 @@ function Nspokes2D = visualize_radial_datasharing(thetas, radii, ...
 arg.Nyquist = [];
 arg.draw_rings = true;%false;
 arg.title = [];
-arg.do_plot = [1 1 1 1];
+arg.do_plot = [0 0 0 1];
+arg.write_png_per_frame = 1;
 arg = vararg_pair(arg, varargin);
 
 if nargin == 1 && strcmp(thetas, 'test')
@@ -26,24 +27,35 @@ for ff = 1:Nf
         
         if arg.do_plot(1)
                 plot_datasharing(thetas{ff}, radii{ff}, arg);
-                subplot(Msp, Nsp,2);
+                title(sprintf('partial spokes used in frame %d', ff))
+                if sum(arg.do_plot(2:end)) > 1, subplot(Msp, Nsp,2); end
         end
         
         if arg.do_plot(2)
                 plot_Voronoi(freqs, frame_members, ff);
-                subplot(Msp, Nsp,3); % do smarter
+                title({'Voronoi diagram for density'; sprintf(' compensation in frame %d', ff)})
+                ylabel('k_y')
+                xlabel('k_x')
+                
+                if sum(arg.do_plot(3:end)) > 1, subplot(Msp, Nsp,3); end
         end
         
         if arg.do_plot(3)
                 im(permute(frame_members(ff, :,:), [2 3 1]));
-                
-                subplot(Msp, Nsp,4);
+                title('frame membership for each readout')
+                xlabel('readount sample index')
+                ylabel('spoke index')
+                if arg.do_plot(end) > 1, subplot(Msp, Nsp,4); end
         end
         
         if arg.do_plot(4)
                 Nspokes2D(:,:,ff) = plot_temporal_resolution(radii{ff}, frame_members, ff);
+                title(sprintf('temporal resolution map for frame %d', ff))
+                ylabel('k_y')
+                xlabel('k_x')
+                colorbar
         else
-                Nspokes_2D = [];e
+                Nspokes_2D = [];
         end
 end
 
@@ -96,13 +108,24 @@ else
                         end
                 end
                 if arg.draw_rings
-                        ring = radii(ring_ndx)*exp(1i*linspace(0,2*pi,200));
-                        plot(ring,'k--');
+                        if ring_ndx > 1 && length(thetas{ring_ndx}) > length(thetas{ring_ndx - 1})
+                                ring = radii(ring_ndx)*exp(1i*linspace(0,2*pi,200));
+                                plot(ring,'k--');
+                        end
+                end
+                axis equal;
+                axis tight;
+                ylabel('k_y')
+                xlabel('k_x')
+                set(gca, 'XTick', [-0.5 0 0.5], 'YTick', [-0.5 0 0.5])
+                axis([-0.5 0.5 -0.5 0.5])
+                if arg.write_png_per_frame
+                        keyboard
                 end
         end
+        
 end
-axis equal;
-axis tight;
+
 if ~isempty(arg.title) &&ischar(arg.title)
         title(arg.title);
 end
@@ -158,7 +181,11 @@ ro = [-Nro/2:Nro/2-1]/Nro;
 dist2D = sqrt(xx.^2 + yy.^2);
 Nspokes = squeeze(sum(frame_members(ff, :, :), 3));
 Nspokes2D = interp1(ro, Nspokes, dist2D, 'nearest' , 'extrap');
-im(Nspokes2D);
+plotk = [-1/2:1/Nro:1/2-1/Nro];
+imagesc(plotk, plotk, Nspokes2D);
+colormap gray
+set(gca, 'XTick', [-0.5 0 1/2-1/Nro], 'YTick', [-0.5 0 1/2-1/Nro]);
+axis square;
 
 end
 

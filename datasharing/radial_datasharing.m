@@ -413,64 +413,64 @@ function radial_datasharing_test(varargin)
 	arg.datapath = '.';
 	arg = vararg_pair(arg, varargin);
 	synthetic = 0;
-	if synthetic
-		arg.Nspokes = 48;
-		arg.Nf = 6;
-		Nyq = 1.5;
-		rng(2);
-		thetas = 2*pi*rand(1, arg.Nspokes);
-
-		% Calculate angles for Golden-Angle mode
-		GA = 111.246117975/180*pi;
-		thetas = [pi/2:GA:GA*arg.Nspokes];
-		thetas = mod(thetas,2*pi);
-		freqs = kron(col([-10:0.2:10]), exp(1i*thetas));
-
-		[ds_data, frame_members, ds_freqs, Ns, ds_dcf] = radial_datasharing(freqs, ...
-			rand(size(freqs)), Nyq, 'Nf', arg.Nf, 'figs_on', 1);
-	else
-	% GRASP patient data, put datapath in 2nd field (data)
-		datafile = [arg.datapath '/XDGRASP_patient1_fast.mat'];
-		if exist(datafile, 'file')
-			load(datafile);
-		end
-		
-		Nyq = 0.05;
-		Nf = 10;
-		trunc = 100; % number of spokes, must be <= 1000
-		params.Nspokes = trunc;
-        params.Nro = 512;
-        
-        % build k-space
-        grad_shift = 0;
-        GA = pi*(sqrt(5)-1)/2; % radians
-        phi = [pi/2:GA:GA*params.Nspokes];
-        assert(mod(params.Nro,2) == 0, 'Number along read out not even!')
-        delta_ro = 1/params.Nro;
-        rho = col([-(params.Nro/2 - 1):1:params.Nro/2])*delta_ro;
-        rho = rho + grad_shift*delta_ro;
-        k = double(rho*exp(-1i*phi));
-		
-		% do one coil at a time, only do full calc for 1st
-		coil_ndx = 1;
-		[ds_data(:, coil_ndx), frame_members(:,:,:,coil_ndx), ds_freqs(:, coil_ndx), ...
-				 ds_Ns(:, coil_ndx), ds_dcf(:, coil_ndx)] = ...
-				radial_datasharing(k(:,1:trunc), ...
-				data(:,1:trunc,coil_ndx), Nyq, 'Nf', Nf, 'figs_on', 1);
-		for coil_ndx = 2:params.Nc
-			[ds_data(:, coil_ndx)] = ...
-				radial_datasharing(k(:,1:trunc), ...
-				data(:,1:trunc,coil_ndx), Nyq, 'Nf', Nf);
-			display(sprintf('done with coil %d/%d', coil_ndx, params.Nc))
-		end
-		figure; im(permute(frame_members, [2 3 1]));
-		% to do: find way to assign data to a frame members of another coil
-
-		F = F_NC_3DT(ds_freqs, ds_Ns, params.Nro, params.Nspokes, Nf, params.Nx, params.Ny, params.Nc);%!!!!
-		sos = sos_combine(F'*(repmat(ds_dcf, 1, params.Nc).*ds_data),[],[]);
-		figure; im(sos); 
-		title('with datasharing and Voronoi dcf');
-		figure; im(sos_combine(F'*ds_data,[],[])); 
-		title('with datasharing and NO dcf');
-	end
+        if synthetic
+                arg.Nspokes = 48;
+                arg.Nf = 6;
+                Nyq = 1.5;
+                rng(2);
+                thetas = 2*pi*rand(1, arg.Nspokes);
+                
+                % Calculate angles for Golden-Angle mode
+                GA = 111.246117975/180*pi;
+                thetas = [pi/2:GA:GA*arg.Nspokes];
+                thetas = mod(thetas,2*pi);
+                freqs = kron(col([-10:0.2:10]), exp(1i*thetas));
+                
+                [ds_data, frame_members, ds_freqs, Ns, ds_dcf] = radial_datasharing(freqs, ...
+                        rand(size(freqs)), Nyq, 'Nf', arg.Nf, 'figs_on', 1);
+        else
+                % GRASP patient data, put datapath in 2nd field (data)
+                datafile = [arg.datapath '/XDGRASP_patient1_fast.mat'];
+                if exist(datafile, 'file')
+                        load(datafile);
+                end
+                
+                Nyq = 0.05;
+                Nf = 10;
+                trunc = 100; % number of spokes, must be <= 1000
+                params.Nspokes = trunc;
+                params.Nro = 512;
+                
+                % build k-space
+                grad_shift = 0;
+                GA = pi*(sqrt(5)-1)/2; % radians
+                phi = [pi/2:GA:GA*params.Nspokes];
+                assert(mod(params.Nro,2) == 0, 'Number along read out not even!')
+                delta_ro = 1/params.Nro;
+                rho = col([-(params.Nro/2 - 1):1:params.Nro/2])*delta_ro;
+                rho = rho + grad_shift*delta_ro;
+                k = double(rho*exp(-1i*phi));
+                
+                % do one coil at a time, only do full calc for 1st
+                coil_ndx = 1;
+                [ds_data(:, coil_ndx), frame_members(:,:,:,coil_ndx), ds_freqs(:, coil_ndx), ...
+                        ds_Ns(:, coil_ndx), ds_dcf(:, coil_ndx)] = ...
+                        radial_datasharing(k(:,1:trunc), ...
+                        data(:,1:trunc,coil_ndx), Nyq, 'Nf', Nf, 'figs_on', 1);
+                for coil_ndx = 2:params.Nc
+                        [ds_data(:, coil_ndx)] = ...
+                                radial_datasharing(k(:,1:trunc), ...
+                                data(:,1:trunc,coil_ndx), Nyq, 'Nf', Nf);
+                        display(sprintf('done with coil %d/%d', coil_ndx, params.Nc))
+                end
+                figure; im(permute(frame_members, [2 3 1]));
+                % to do: find way to assign data to a frame members of another coil
+                
+                F = F_NC_3DT(ds_freqs, ds_Ns, params.Nro, params.Nspokes, Nf, params.Nx, params.Ny, params.Nc);%!!!!
+                sos = sos_combine(F'*(repmat(ds_dcf, 1, params.Nc).*ds_data),[],[]);
+                figure; im(sos);
+                title('with datasharing and Voronoi dcf');
+                figure; im(sos_combine(F'*ds_data,[],[]));
+                title('with datasharing and NO dcf');
+        end
 end
