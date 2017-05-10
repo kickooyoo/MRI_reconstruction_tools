@@ -33,7 +33,7 @@
 %|
 %| out
 %|	xs	[np niter]	estimates each iteration
-%|	info	[niter 3]	gamma, step size, time each iteration
+%|	info	[niter 4]	gamma, step size, time each iteration, stop_diff_tol
 %|
 %| Copyright 1996-7, Jeff Fessler, University of Michigan
 
@@ -44,7 +44,7 @@ if nargin < 5, help(mfilename), error(mfilename), end
 arg.precon = 1;
 arg.niter = 1;
 arg.isave = [];
-arg.isave_fname = './tmp';
+arg.isave_fname = [];
 arg.stepper = {'qs', 3}; % quad surr with this # of subiterations
 arg.userfun = @userfun_default;
 arg.userarg = {};
@@ -54,7 +54,7 @@ arg.stop_diff_norm = 2;
 arg.stop_grad_tol = 0;
 arg.stop_grad_norm = 2;
 arg.chat = 0;
-
+arg.calc_cost = 0;
 arg = vararg_pair(arg, varargin, 'subs', ...
 {'stop_threshold', 'stop_diff_tol'; 'stop_norm_type', 'stop_diff_norm'});
 
@@ -66,6 +66,19 @@ if arg.stop_grad_tol
 	% todo: the "correct" way is sum(abs(sqrtm(W) * y).^2, 'double')
 	norm_grad = @(g) norm(g(:), arg.stop_grad_norm) / reale(dot_double(conj(yi), W * yi)); % mtl
 end
+if arg.calc_cost
+	arg.lambda_s = R.data.wt{1}; 
+	if length(R.data) > 3
+		arg.lambda_t = R.data.wt{4};
+	else
+		arg.lambda_t = 0;
+	end
+	if length(R.data.wt) > 4
+		arg.lambda_r = R.data.wt{5}; arg.lambda_r = arg.lambda_r(1);
+	else 
+		arg.lambda_r = 0;
+	end
+end
 
 cpu etic
 if isempty(x), x = zeros(ncol(A),1); end
@@ -74,7 +87,7 @@ if any(arg.isave == 0)
 	xs(:, arg.isave == 0) = x(:); % mtl
 end
 np = numel(x); % mtl
-if 0%~isempty(arg.isave_fname)
+if ~isempty(arg.isave) && ~isempty(arg.isave_fname)
 	[exist_hits, exist_fnames] = exist_regexp(arg.isave_fname, 'file');
 	if ~isempty(exist_hits)
 		for ii = 1:length(exist_hits)
@@ -82,8 +95,13 @@ if 0%~isempty(arg.isave_fname)
 		end
 		resume_iter = max(resume_iter);
 		if ~isempty(resume_iter)
-			start_iter = resume_iter + 1;
 			load(sprintf([arg.isave_fname '_%diter.mat'], resume_iter));
+			if resume_iter >= arg.niter
+				xs = x;
+				return;
+			else
+				start_iter = resume_iter + 1;
+			end
 		else
 			start_iter = 1;
 		end
@@ -94,6 +112,9 @@ if 0%~isempty(arg.isave_fname)
 		display(sprintf('done saving iter %d in %s', 0, arg.isave_fname))
 	end
 	xs = zeros(np, length(arg.isave));
+elseif ~isempty(arg.isave)
+	xs = zeros(np, length(arg.isave));
+	start_iter = 1;
 else
 	xs = zeros(np, 1);
 	start_iter = 1;
@@ -112,7 +133,7 @@ for iter = start_iter:arg.niter
 	ticker(mfilename, iter, arg.niter)
 
 	% (negative) gradient
-	ngrad = A' * (W * (yi-Ax));
+	ngrad = reshape(A' * (W * (yi-Ax)), A.idim);
 	pgrad = R.cgrad(R, x);
 	ngrad = ngrad - pgrad;
 
@@ -155,7 +176,7 @@ for iter = start_iter:arg.niter
 	% check if descent direction
 	if real(dot_double(conj(ddir), ngrad)) < 0
 		warn('wrong direction at iter=%d; try using stop_grad_tol?', iter)
-		ratio = norm(ngrad(:), arg.stop_grad_norm) / (yi'*W*yi);
+		ratio = norm_grad(ngrad);% norm(ngrad(:), arg.stop_grad_norm) / reale(dot_double(conj(yi), W * yi)); %  
 		pr ratio % see how small it is
 		if arg.key, keyboard, end
 	end
@@ -237,7 +258,11 @@ for iter = start_iter:arg.niter
 		display('why x = 0?')
 		keyboard;
 	end
-	info(iter,:) = arg.userfun(x, iter, step, ddir, arg.userarg{:});
+	info(iter,1:4) = arg.userfun(x, iter, step, ddir, arg.userarg{:});
+	if arg.calc_cost
+		curr_cost = MMI_cost(x, arg, A, 1, R.data.Cs, yi);
+		info(iter,5) = curr_cost;
+	end
 	if any(arg.isave == iter)
 		if ~isempty(arg.isave_fname)
 			save([arg.isave_fname sprintf('_%diter', iter)], 'x', 'info', '-v7.3');

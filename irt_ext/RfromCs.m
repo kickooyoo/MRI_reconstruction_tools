@@ -32,10 +32,10 @@ arg.Cs = []; % use Cs for Cdiffs
 arg.pot = {potential_fun('quad')};
 arg.wt = {1};
 arg.mask = []; % can give explicitly or read from Cdiffs
-arg.chat = 1;
+arg.chat = 0;
 arg = vararg_pair(arg, varargin);
 
-% convert Cdiffs to {C1}
+% convert Cdiffs to {C1}, built for retroactive compatibility
 if ~isempty(arg.Cs) && (arg.C1 == 1)
         if length(arg.Cs) == 1
         arg.C1 = arg.Cs.arg.Cc;
@@ -50,14 +50,18 @@ end
 % provided mask overrides Cdiffs mask
 if ~isempty(arg.Cs) && isempty(arg.mask)
 	if iscell(arg.Cs)
-		Cs_mask = arg.Cs{1}.arg.mask;
-		if ndims(Cs_mask) == 5
-			arg.mask = Cs_mask(:,:,1,1,1);
-		elseif ndims(Cs_mask) == 2
-			arg.mask = Cs_mask;
+		if isfield(arg.Cs{1}, 'mask')
+			Cs_mask = arg.Cs{1}.arg.mask;
+			if ndims(Cs_mask) == 5
+				arg.mask = Cs_mask(:,:,1,1,1);
+			elseif ndims(Cs_mask) == 2
+				arg.mask = Cs_mask;
+			else
+				display('weird Cs mask dims')
+				keyboard
+			end
 		else
-			display('weird Cs mask dims')
-			keyboard
+			arg.mask = true(arg.Cs{1}.idim);
 		end
 	else
 		arg.mask = arg.Cs.arg.mask;
