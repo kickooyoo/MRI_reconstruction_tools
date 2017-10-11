@@ -70,7 +70,8 @@ arg.type_diff = 'def';
 arg.offset = [1];
 arg.order = 1;
 arg.class = ''; % see below
-
+arg.mask = true(arg.isize); % mtl
+arg.omask = true(arg.isize); % mtl
 % parse options
 arg = vararg_pair(arg, varargin);
 
@@ -134,7 +135,7 @@ if arg.offset == 0
 			ob = fatrix2('idim', arg.isize, 'odim', arg.isize, ...
 				'does_many', true, 'caller', 'Cdiff1_ml:ident', ...
 				'forw', handle_forw, 'back', handle_back, ...
-				'abs', handle_abs, 'power', handle_pow);
+				'abs', handle_abs, 'power', handle_pow, 'omask', arg.omask);
 		case 'Fatrix'
 			ob = Fatrix(arg.dim, arg, 'caller', 'Cdiff1_ml:ident', ...
 				'forw', @Cdiff1_ml_ident_dup, ...
@@ -182,8 +183,8 @@ case {'convn', 'imfilter'}
 	switch arg.class
 	case 'fatrix2'
 		forw = @(arg, x) arg.filt_forw(x, ...
-			Cdiff1_ml_coef_powabs(arg.coef, arg));
-		back = @(arg, y) arg.filt_forw(y, ... % trick!
+			Cdiff1_ml_coef_powabs(arg.coef, arg)) .* arg.omask; % mtl
+		back = @(arg, y) arg.filt_forw(arg.omask .* y, ... % trick! % mtl
 			flipdims(Cdiff1_ml_coef_powabs(arg.coef, arg)));
 		ob = Cdiff1_ml_fatrix2(arg, true, forw, back);
 	case 'Fatrix'

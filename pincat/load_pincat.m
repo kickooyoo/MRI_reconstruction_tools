@@ -1,10 +1,14 @@
 function pincat = load_pincat(dir_name, varargin)
 %function pincat = load_pincat(dir_name, varargin)
-% really helpful for pincat with outframes > 1
+% loads in pincat series with same prefix
 % 
-% for separately generated frames/respiratory states, use check_resp_pincat script 
+% most helpful for pincat with outframes > 1
+% for separately generated frames/respiratory states, use check_resp_pincat
+%
+% Mai Le 05/24/16
+% cleaned up 05/18/17
 
-arg.dims = [256 256 100];
+arg.dims = [256 256 100]; % for checking completeness of img
 arg.prefix = 'pincat_act';
 arg = vararg_pair(arg, varargin);
 
@@ -31,4 +35,3 @@ if isempty(pincat)
 	keyboard
 end
 
-%figure; im('mid3', squeeze(pincat(:,:,:,1)))
